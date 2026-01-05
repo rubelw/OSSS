@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 import re
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List, Tuple, Iterable, Union
 
@@ -83,23 +84,17 @@ class FinalAgent(BaseAgent):
         name: str = "final",
         **kwargs: Any,
     ) -> None:
-        # Configuration system - backward compatible
         self.config: FinalConfig = config if config is not None else FinalConfig()
 
-        # Pass timeout from config to BaseAgent (align with SynthesisAgent/HistorianAgent)
         super().__init__(
             name=name,
             timeout_seconds=self.config.execution_config.timeout_seconds,
             **kwargs,
         )
 
-        # Prompt composition support
         self._prompt_composer = PromptComposer()
         self._composed_prompt: Optional[ComposedPrompt] = None
 
-        # LLM instance:
-        # - If "default", we rely on per-request LLMFactory based on execution_config.
-        # - If an LLMInterface is passed, we honor it.
         if llm == "default":
             self.llm: Optional[LLMInterface] = None
         else:
@@ -110,90 +105,36 @@ class FinalAgent(BaseAgent):
             else:
                 self.llm = None
 
-        # Compose the prompt on initialization (if PromptComposer supports final)
         self._update_composed_prompt()
 
-    def _compose_prompt(self, ctx: AgentContext) -> tuple[str, str]:
+    # -----------------------
+    # safe ctx access
+    # -----------------------
+
+    def _ctx_get(self, ctx: AgentContext, key: str, default: Any = None) -> Any:
         """
-        Build system + user prompts for the FinalAgent.
-        Uses original_query and data_query output so structured query mode works.
+        AgentContext isn't guaranteed to be dict-like. Support:
+        - ctx.get(key) if it exists
+        - getattr(ctx, key)
+        - ctx[key] if it implements __getitem__
         """
-        exec_state = getattr(ctx, "execution_state", {}) or {}
+        try:
+            getter = getattr(ctx, "get", None)
+            if callable(getter):
+                return getter(key, default)
+        except Exception:
+            pass
 
-        # --- 1) Original vs refined question ---------------------------------
-        original_question = (
-            exec_state.get("original_query")
-            or getattr(ctx, "query", "")  # fallback if not set
-            or ""
-        )
+        try:
+            if hasattr(ctx, key):
+                return getattr(ctx, key)
+        except Exception:
+            pass
 
-        if not original_question:
-            # Last-chance recovery from traces if needed
-            original_question = self._resolve_user_question(ctx) or ""
-
-        # What the refiner produced (or fall back to original)
-        agent_outputs = getattr(ctx, "agent_outputs", None) or {}
-        refined_question = agent_outputs.get("refiner") or original_question
-
-        # --- 2) RAG snippet + presence ---------------------------------------
-        rag_snippet = (
-            exec_state.get("rag_snippet")
-            or exec_state.get("rag_context")
-            or ""
-        )
-        rag_snippet = (rag_snippet or "").strip()
-        rag_present = bool(rag_snippet)
-
-        # --- 3) data_query markdown table(s) ---------------------------------
-        dq_output = agent_outputs.get("data_query")
-        data_query_markdown = ""
-
-        if isinstance(dq_output, dict):
-            data_query_markdown = (
-                dq_output.get("table_markdown")
-                or dq_output.get("markdown")
-                or dq_output.get("content")
-                or ""
-            )
-        elif isinstance(dq_output, str):
-            data_query_markdown = dq_output
-
-        data_query_markdown = (data_query_markdown or "").strip()
-
-        # --- 3b) metadata for RAG / data_query (if provided) -----------------
-        rag_metadata = ""
-        if isinstance(exec_state, dict):
-            rag_metadata = (
-                exec_state.get("rag_metadata")
-                or exec_state.get("rag_meta")
-                or ""
-            )
-
-        data_query_metadata = ""
-        if isinstance(dq_output, dict):
-            data_query_metadata = (
-                dq_output.get("metadata")
-                or dq_output.get("meta")
-                or dq_output.get("info")
-                or ""
-            )
-
-        # --- 4) Build the final user prompt ----------------------------------
-        user_prompt = build_final_prompt(
-            user_question=refined_question,
-            refiner_text=refined_question,  # still used for refiner block logic
-            rag_present=rag_present,
-            rag_section=rag_snippet,
-            original_user_question=original_question,
-            data_query_markdown=data_query_markdown,
-            config=self.config,
-            rag_metadata=rag_metadata or None,
-            data_query_metadata=data_query_metadata or None,
-        )
-
-        # Use composed or default system prompt
-        system_prompt = self._get_system_prompt()
-        return system_prompt, user_prompt
+        try:
+            return ctx[key]  # type: ignore[index]
+        except Exception:
+            return default
 
     # -----------------------
     # heuristics
@@ -206,15 +147,12 @@ class FinalAgent(BaseAgent):
         if not t:
             return False
 
-        # common "no-op" marker
         if t.startswith("[unchanged]"):
             return True
 
-        # standard refined-query headings
         if t.startswith(_REFINE_PREFIXES):
             return True
 
-        # markdowny refiner blocks
         if "refined query" in t and (
             "contextual information" in t
             or "revised query" in t
@@ -228,11 +166,55 @@ class FinalAgent(BaseAgent):
         if "refined" in t and ("====" in t or "----" in t):
             return True
 
-        # prompts that explicitly mention canonicalization rules are clearly not "the user question"
         if "canonicalization rule" in t and "dcg" in t:
             return True
 
         return False
+
+    def _looks_like_metadata_dump(self, text: str) -> bool:
+        """
+        Detect the exact kind of blob you're seeing in logs:
+        "This is a JSON object containing metadata about a conversation..."
+        """
+        if not isinstance(text, str):
+            return False
+        t = text.strip()
+        if not t:
+            return False
+
+        low = t.lower()
+
+        # Very common in your logs
+        if "this is a json object" in low and "metadata" in low and "conversation" in low:
+            return True
+        if "classifier profile" in low and "conversation id" in low:
+            return True
+        if "agent outputs" in low and "orchestrator" in low:
+            return True
+
+        # General "dump-ish" signals
+        braces = t.count("{") + t.count("}")
+        colons = t.count(":")
+        qmarks = t.count("?")
+        if len(t) > 400 and (braces > 10 or colons > 30) and qmarks == 0:
+            return True
+
+        if len(t) > 400 and (t.count("\\n") > 8 or t.count("\\\\") > 8):
+            return True
+
+        return False
+
+    def _looks_like_user_question(self, text: str) -> bool:
+        if not isinstance(text, str):
+            return False
+        s = text.strip()
+        if not s:
+            return False
+        if self._looks_like_metadata_dump(s):
+            return False
+        if len(s) > 240:
+            return False
+        return True
 
     def _normalize_refiner_to_question(self, text: str) -> str:
         if not isinstance(text, str):
@@ -261,19 +243,79 @@ class FinalAgent(BaseAgent):
         return best
 
     # -----------------------
-    # role-identity question detection (to avoid hallucinating people)
+    # ✅ stable context formatting
+    # -----------------------
+
+    def _format_refiner_output_for_prompt(self, refiner_out: Any) -> str:
+        """
+        Refiner output can be stored as:
+          - str (already formatted)
+          - dict/list (structured artifact)
+        We want a stable, readable representation in the final prompt.
+        """
+        if refiner_out is None:
+            return ""
+        if isinstance(refiner_out, str):
+            return refiner_out.strip()
+        if isinstance(refiner_out, (dict, list, tuple)):
+            try:
+                return json.dumps(refiner_out, indent=2, sort_keys=True, default=str).strip()
+            except Exception:
+                return str(refiner_out).strip()
+        return str(refiner_out).strip()
+
+    def _truncate_block(self, text: str, limit: int = 4000) -> str:
+        if not isinstance(text, str):
+            return ""
+        s = text.strip()
+        if len(s) <= limit:
+            return s
+        head = s[:limit].rstrip()
+        return head + "\n... [truncated]\n"
+
+    def _discover_refiner_output_struct(self, ctx: AgentContext, exec_state: Dict[str, Any]) -> Any:
+        """
+        PR5: ensure we always have *some* refiner_output artifact available for prompt inclusion.
+        Priority:
+          1) exec_state["refiner_output"] (already in state contract)
+          2) ctx.get_last_output("refiner") if available
+          3) ctx/refiner_output or ctx/refiner (dict/str)
+          4) agent_outputs["refiner"] (dict/str)
+        """
+        if isinstance(exec_state, dict) and "refiner_output" in exec_state:
+            return exec_state.get("refiner_output")
+
+        get_last = getattr(ctx, "get_last_output", None)
+        if callable(get_last):
+            try:
+                v = get_last("refiner")
+                if v is not None:
+                    return v
+            except Exception:
+                pass
+
+        v2 = self._ctx_get(ctx, "refiner_output")
+        if v2 is not None:
+            return v2
+
+        v3 = self._ctx_get(ctx, "refiner")
+        if v3 is not None:
+            return v3
+
+        agent_outputs = getattr(ctx, "agent_outputs", None) or {}
+        v4 = agent_outputs.get("refiner")
+        if v4 is not None:
+            return v4
+
+        return None
+
+    # -----------------------
+    # role-identity question detection
     # -----------------------
 
     def _is_role_identity_question(self, text: str) -> bool:
-        """
-        Detect questions like:
-          - "Who is the current superintendent of ..."
-          - "Who's the principal at ..."
-          - "Is Scott Blum the superintendent at DCG?"
-        """
         if not isinstance(text, str):
             return False
-
         t = text.strip().lower()
         if not t:
             return False
@@ -282,50 +324,34 @@ class FinalAgent(BaseAgent):
         if not has_role_keyword:
             return False
 
-        # Pattern A: explicit "who" questions
         if "who is" in t or "who's" in t or t.startswith("who "):
             return True
 
-        # Pattern B: "is <something> the <role>"
         if t.startswith("is ") and any(f" the {kw}" in t for kw in _ROLE_IDENTITY_KEYWORDS):
             return True
 
         return False
 
     # -----------------------
-    # trace/log discovery (generic helpers)
+    # trace/log discovery helpers (unchanged)
     # -----------------------
 
     def _iter_dictish_records(self, obj: Any) -> Iterable[Dict[str, Any]]:
-        """
-        Recursively yield dict-like trace/event records.
-        """
-        # dict case
         if isinstance(obj, dict):
-            # If this dict already looks like a trace record (has input/output/agent),
-            # yield it directly.
             if any(k in obj for k in ("input", "output", "agent", "agent_name", "name")):
                 yield obj
-
-            # Then descend into values
             for v in obj.values():
                 if isinstance(v, (dict, list, tuple)):
                     yield from self._iter_dictish_records(v)
             return
 
-        # list / tuple case
         if isinstance(obj, (list, tuple)):
             for x in obj:
                 if isinstance(x, (dict, list, tuple)):
                     yield from self._iter_dictish_records(x)
 
     def _iter_trace_candidates(self, ctx: AgentContext) -> List[Any]:
-        """
-        Collect candidate containers that might hold trace/log/event data.
-        """
         candidates: List[Any] = []
-
-        # 1) direct attrs on ctx (introspective)
         try:
             for k, v in vars(ctx).items():
                 lk = k.lower()
@@ -334,7 +360,6 @@ class FinalAgent(BaseAgent):
         except Exception:
             pass
 
-        # 2) execution_state (introspective)
         exec_state = getattr(ctx, "execution_state", None)
         if isinstance(exec_state, dict):
             for k, v in exec_state.items():
@@ -342,7 +367,6 @@ class FinalAgent(BaseAgent):
                 if any(tok in lk for tok in ("trace", "log", "event", "history")):
                     candidates.append(v)
 
-        # 3) common explicit keys
         for name in ("traces", "trace_log", "agent_traces", "events", "logs"):
             candidates.append(getattr(ctx, name, None))
             if isinstance(exec_state, dict):
@@ -351,16 +375,12 @@ class FinalAgent(BaseAgent):
         return candidates
 
     def _iter_trace_dicts(self, ctx: AgentContext) -> List[Dict[str, Any]]:
-        """
-        Flatten any dict-like trace/event records we can find.
-        """
         out: List[Dict[str, Any]] = []
         for c in self._iter_trace_candidates(ctx):
             if c is None:
                 continue
             out.extend(list(self._iter_dictish_records(c)))
 
-        # some implementations nest lists inside dicts like {"items":[...]} or {"records":[...]}
         expanded: List[Dict[str, Any]] = []
         for rec in out:
             expanded.append(rec)
@@ -371,109 +391,24 @@ class FinalAgent(BaseAgent):
         return expanded
 
     # -----------------------
-    # original query / refiner recovery
+    # original query / refiner recovery (mostly unchanged)
     # -----------------------
 
-    def _extract_original_from_refiner_text(self, refiner_text: str) -> str:
-        if not isinstance(refiner_text, str) or not refiner_text.strip():
-            return ""
-        lowered = refiner_text.lower()
-        marker = "original query:"
-        idx = lowered.find(marker)
-        if idx == -1:
-            return ""
-        after = refiner_text[idx + len(marker) :].strip()
-        for line in after.splitlines():
-            s = line.strip()
-            if s:
-                return s
+    def _get_classifier_original_text(self, exec_state: Dict[str, Any]) -> str:
+        prof = exec_state.get("classifier_profile") or exec_state.get("classifier_result") or {}
+        if isinstance(prof, dict):
+            for k in ("original_text", "normalized_text"):
+                v = prof.get(k)
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
+        cls = exec_state.get("classifier") or {}
+        if isinstance(cls, dict):
+            v = cls.get("original_text")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
         return ""
-
-    def _extract_refiner_output_from_traces(self, ctx: AgentContext) -> str:
-        """
-        Best-effort extraction of the latest refiner output from the agent traces.
-        """
-        traces = getattr(ctx, "traces", None)
-        if not isinstance(traces, list):
-            return ""
-
-        # Walk backward so we prefer the latest refiner output
-        for tr in reversed(traces):
-            try:
-                agent = (tr.get("agent") or "").lower()
-                if agent and agent != "refiner":
-                    continue
-
-                # refiner output may be under "output", "content", or "text"
-                out = tr.get("output")
-                if isinstance(out, str) and out.strip():
-                    return out.strip()
-
-                if isinstance(out, dict):
-                    for key in ("text", "content", "markdown"):
-                        val = out.get(key)
-                        if isinstance(val, str) and val.strip():
-                            return val.strip()
-            except Exception:
-                continue
-
-        return ""
-
-    def _extract_original_from_traces(self, ctx: AgentContext) -> str:
-        """
-        Try to recover the original user query from execution_state + trace logs.
-        """
-        exec_state = getattr(ctx, "execution_state", None)
-        if isinstance(exec_state, dict):
-            oq = exec_state.get("original_query")
-            if isinstance(oq, str):
-                oq = oq.strip()
-                if oq and not self._looks_like_refiner_text(oq):
-                    return oq
-
-        traces = getattr(ctx, "traces", None) or getattr(ctx, "trace_log", None)
-        if not isinstance(traces, list):
-            return ""
-
-        candidates: List[Tuple[int, str]] = []
-
-        for t in traces:
-            if not isinstance(t, dict):
-                continue
-            agent_name = (t.get("agent") or t.get("agent_name") or "").lower()
-            inp = t.get("input")
-
-            # Some logs put structured payloads in 'input'
-            if isinstance(inp, dict):
-                inp = self._pick_first_str(
-                    inp.get("query"),
-                    inp.get("raw_query"),
-                    inp.get("original_query"),
-                    inp.get("user_query"),
-                    inp.get("input_query"),
-                )
-
-            if isinstance(inp, str):
-                s = inp.strip()
-                if not s or self._looks_like_refiner_text(s):
-                    continue
-
-                weight = 0
-                if agent_name in ("refiner", "classifier"):
-                    weight = 10
-                candidates.append((weight, s))
-
-        if not candidates:
-            return ""
-
-        # pick the highest-weight candidate
-        candidates.sort(key=lambda x: -x[0])
-        return candidates[0][1]
 
     def _extract_refined_question_from_refiner(self, refiner_text: str) -> str:
-        """
-        Try to pull a single 'refined' question from the refiner's markdown output.
-        """
         if not isinstance(refiner_text, str) or not refiner_text.strip():
             return ""
 
@@ -481,119 +416,32 @@ class FinalAgent(BaseAgent):
         if not lines:
             return ""
 
-        # 1) Look for '**Improved Query**: ...' or 'Improved Query: ...'
         for ln in lines:
             low = ln.lower()
             if low.startswith("**improved query**") or low.startswith("improved query:"):
                 if ":" in ln:
-                    # handle '**Improved Query**: question' or 'Improved Query: question'
                     return ln.split(":", 1)[1].strip()
-                continue
 
-        # 2) Look for 'Refined Query: ...'
         for ln in lines:
             low = ln.lower()
             if low.startswith("refined query:"):
                 return ln.split(":", 1)[1].strip()
 
-        # 3) Fallback: last line that looks like an actual question
         question_candidates = [ln for ln in lines if "?" in ln]
         if question_candidates:
             return question_candidates[-1].strip()
 
         return ""
 
-    def _resolve_user_question(self, ctx: AgentContext, refiner_text: str = "") -> str:
-        """
-        Resolve the actual end-user question the FINAL agent should answer.
-        """
-        exec_state = getattr(ctx, "execution_state", None)
-
-        # 1) Treat execution_state["user_question"] as the explicit override
-        if isinstance(exec_state, dict):
-            uq = exec_state.get("user_question")
-            if isinstance(uq, str):
-                uq = uq.strip()
-                if uq and not self._looks_like_refiner_text(uq):
-                    return uq
-
-        # 2) Most reliable fallback: trace input
-        trace_original = self._extract_original_from_traces(ctx)
-        if trace_original and not self._looks_like_refiner_text(trace_original):
-            return trace_original.strip()
-
-        candidates: List[str] = []
-
-        # 3) remaining execution_state keys
-        if isinstance(exec_state, dict):
-            for key in (
-                "original_query",
-                "raw_query",
-                "user_query",  # legacy
-                "initial_query",
-                "input_query",
-                "query_original",
-                "request_query",
-            ):
-                v = exec_state.get(key)
-                if isinstance(v, str):
-                    v = v.strip()
-                    if v and not self._looks_like_refiner_text(v):
-                        candidates.append(v)
-
-        # 4) direct ctx attributes
-        direct_original = self._pick_first_str(
-            getattr(ctx, "original_query", None),
-            getattr(ctx, "raw_query", None),
-            getattr(ctx, "user_query", None),
-            getattr(ctx, "input_query", None),
-            getattr(ctx, "query_original", None),
-        )
-        if direct_original and not self._looks_like_refiner_text(direct_original):
-            candidates.append(direct_original)
-
-        # 5) ctx.query itself
-        raw_query = (getattr(ctx, "query", None) or "").strip()
-        if raw_query and not self._looks_like_refiner_text(raw_query):
-            candidates.append(raw_query)
-
-        # 6) derive from refiner_text if needed (e.g. "* **Input:** ..." lines)
-        if isinstance(refiner_text, str) and refiner_text.strip():
-            lines = [ln.strip() for ln in refiner_text.splitlines() if ln.strip()]
-            for ln in lines:
-                low = ln.lower()
-
-                # pattern like: * **Input:** who is DCG superintendent
-                if low.startswith("* **input:**") or low.startswith("* **input :**"):
-                    parts = re.split(r"\*\*input\s*:?\*\*", ln, flags=re.IGNORECASE)
-                    if len(parts) > 1:
-                        q = parts[1].strip(" :")
-                        if q and not self._looks_like_refiner_text(q):
-                            candidates.append(q)
-
-                # pattern like: "* **Refined Question:** Who is the superintendent of ..."
-                if "refined question:" in low:
-                    q = ln.split(":", 1)[-1].strip()
-                    if q and not self._looks_like_refiner_text(q):
-                        candidates.append(q)
-
-        # Finally, choose the first non-empty candidate in our priority-ordered list
-        return self._pick_first_str(*candidates) or ""
-
     def _extract_best_refiner_text(self, ctx: AgentContext) -> str:
-        """
-        Best-effort extraction of the full refiner output.
-        """
         exec_state = getattr(ctx, "execution_state", None)
         candidates: List[str] = []
 
-        # 1) canonical: execution_state["refiner_full_text"]
         if isinstance(exec_state, dict):
             v = exec_state.get("refiner_full_text")
             if isinstance(v, str) and v.strip():
                 candidates.append(v.strip())
 
-        # 2) execution_state["agent_outputs"]["refiner"] / ["outputs"]["refiner"]
         if isinstance(exec_state, dict):
             for key in ("agent_outputs", "outputs"):
                 ao = exec_state.get(key)
@@ -602,7 +450,6 @@ class FinalAgent(BaseAgent):
                     if isinstance(v, str) and v.strip():
                         candidates.append(v.strip())
 
-        # 3) ctx.get_agent_output("refiner") (if such a helper exists)
         get_output = getattr(ctx, "get_agent_output", None)
         if callable(get_output):
             try:
@@ -612,7 +459,6 @@ class FinalAgent(BaseAgent):
             except Exception:
                 pass
 
-        # 4) traces (walk backward so latest outputs win)
         for container_name in ("traces", "trace_log"):
             traces = getattr(ctx, container_name, None)
             if not isinstance(traces, list):
@@ -626,25 +472,16 @@ class FinalAgent(BaseAgent):
 
         best = self._pick_longest_str(*candidates)
 
-        # If the "best" thing we found is just a tiny heading like "**Refined Query**",
-        # treat that as effectively "no refiner text".
         if best and self._looks_like_refiner_text(best) and len(best) < 120 and len(best.splitlines()) <= 2:
             return ""
 
         return best
 
     # -----------------------
-    # ✅ execution_config discovery (deterministic)
+    # ✅ execution_config discovery (unchanged)
     # -----------------------
 
     def _get_execution_config(self, ctx: AgentContext) -> Dict[str, Any]:
-        """
-        Deterministic retrieval of request execution_config.
-
-        Prefer the canonical execution_state["config"], but support legacy
-        execution_state["execution_config"] and other fallbacks.
-        """
-
         def _unwrap(v: Any) -> Dict[str, Any]:
             if not isinstance(v, dict):
                 return {}
@@ -655,23 +492,19 @@ class FinalAgent(BaseAgent):
 
         state = getattr(ctx, "execution_state", None)
         if isinstance(state, dict):
-            # ✅ Canonical key first
             cfg = state.get("config")
             if isinstance(cfg, dict):
                 return _unwrap(cfg)
 
-            # ✅ Back-compat key
             v = state.get("execution_config")
             if isinstance(v, dict):
                 return _unwrap(v)
 
-            # ✅ Legacy / transitional keys (best-effort)
             for key in ("raw_request_config", "raw_execution_config", "request_config"):
                 vv = state.get(key)
                 if isinstance(vv, dict):
                     return _unwrap(vv)
 
-        # last resort: ctx.execution_config attribute (legacy)
         v2 = getattr(ctx, "execution_config", None)
         if isinstance(v2, dict):
             return _unwrap(v2)
@@ -683,102 +516,175 @@ class FinalAgent(BaseAgent):
     # -----------------------
 
     def _update_composed_prompt(self) -> None:
-        """
-        Update the composed prompt based on current configuration, if supported.
-
-        This mirrors the SynthesisAgent/HistorianAgent pattern:
-        we prefer a composed system prompt when available.
-        """
         try:
-            self._composed_prompt = self._prompt_composer.compose_final_prompt(
-                self.config
-            )
-            logger.debug(
-                f"[{self.name}] Prompt composed for FinalAgent with config."
-            )
+            self._composed_prompt = self._prompt_composer.compose_final_prompt(self.config)
+            logger.debug(f"[{self.name}] Prompt composed for FinalAgent with config.")
         except Exception as e:
-            logger.warning(
-                f"[{self.name}] Failed to compose FinalAgent prompt, using default: {e}"
-            )
+            logger.warning(f"[{self.name}] Failed to compose FinalAgent prompt, using default: {e}")
             self._composed_prompt = None
 
     def _get_system_prompt(self) -> str:
-        """
-        Get the system prompt, using composed prompt if available, otherwise fallback.
-        """
-        if self._composed_prompt and self._prompt_composer.validate_composition(
-            self._composed_prompt
-        ):
+        if self._composed_prompt and self._prompt_composer.validate_composition(self._composed_prompt):
             return self._composed_prompt.system_prompt
-        else:
-            logger.debug(f"[{self.name}] Using default FinalAgent system prompt (fallback)")
-            return self._get_default_system_prompt()
-
-    def _get_default_system_prompt(self) -> str:
-        """
-        Default system prompt for backward compatibility.
-        """
-        # We import FINAL_SYSTEM_PROMPT from OSSS.ai.agents.final.prompts at module import time,
-        # so there is no circular dependency here.
+        logger.debug(f"[{self.name}] Using default FinalAgent system prompt (fallback)")
         return FINAL_SYSTEM_PROMPT
 
-    def _build_prompt(
-        self,
-        user_question: str,
-        refiner_text: str,
-        rag_present: bool,
-        rag_section: str,
-    ) -> str:
+    def _compose_prompt(self, ctx: AgentContext) -> tuple[str, str]:
         """
-        Build the FINAL agent *user* prompt.
+        Build system + user prompts for the FinalAgent.
+        Ensures the raw/original user question survives wizard follow-ups.
 
-        Priority:
-        1) If PromptComposer provides a "final_prompt" template, use that.
-        2) Otherwise, fall back to build_final_prompt from prompts.py.
-
-        NOTE: This helper does not currently pass data_query tables/metadata,
-        because callers only provide basic fields. For full behavior, use
-        _compose_prompt, which is what run() uses.
+        PR5:
+          - Always include refiner_output (JSON or readable representation) in the composed prompt.
+          - Include a data_query_note line if present.
         """
-        # Try composed template first (if available)
-        if self._composed_prompt:
-            try:
-                tmpl = self._composed_prompt.get_template("final_prompt")
-            except Exception:
-                tmpl = None
+        exec_state = getattr(ctx, "execution_state", {}) or {}
+        agent_outputs = getattr(ctx, "agent_outputs", None) or {}
 
-            if tmpl:
-                try:
-                    uq = (user_question or "").strip() or "[missing user question]"
-                    rt = (refiner_text or "").strip()
-                    rs = (rag_section or "").strip() or "No retrieved context provided."
+        classifier_original = self._get_classifier_original_text(exec_state) if isinstance(exec_state, dict) else ""
 
-                    return tmpl.format(
-                        user_question=uq,
-                        refiner_text=rt,
-                        rag_present=str(bool(rag_present)),
-                        rag_section=rs,
-                    )
-                except Exception as e:
-                    logger.debug(
-                        f"[{self.name}] Failed to apply composed final_prompt template: {e}"
-                    )
+        # ✅ PR5: stable refiner_output artifact for prompt inclusion (always present as a section)
+        refiner_out_struct = self._discover_refiner_output_struct(ctx, exec_state if isinstance(exec_state, dict) else {})
+        if isinstance(exec_state, dict) and exec_state.get("refiner_output") is None and refiner_out_struct is not None:
+            # backfill state contract so downstream debug sees it consistently
+            exec_state["refiner_output"] = refiner_out_struct
 
-        # Fallback: dedicated builder (same pattern as SynthesisAgent's prompts module)
-        return build_final_prompt(
-            user_question=user_question,
-            refiner_text=refiner_text,
-            rag_present=rag_present,
-            rag_section=rag_section,
-            original_user_question=None,
-            data_query_markdown=None,
-            config=self.config,  # ✅ pass config so metadata flags still apply
-            rag_metadata=None,
-            data_query_metadata=None,
+        refiner_out_text = self._truncate_block(self._format_refiner_output_for_prompt(refiner_out_struct), limit=4000)
+
+        # ✅ PR5: include data_query_note line if present
+        data_query_note = ""
+        if isinstance(exec_state, dict):
+            v = exec_state.get("data_query_note")
+            if isinstance(v, str) and v.strip():
+                data_query_note = v.strip()
+
+        # --- refiner text (best-effort) ---------------------------------------
+        refiner_text = (
+            self._ctx_get(ctx, "refiner")
+            or self._ctx_get(ctx, "refiner_output")
+            or (exec_state or {}).get("refiner_snippet")
+            or (exec_state or {}).get("refiner_full_text")
+            or (exec_state or {}).get("refiner")
+            or (exec_state or {}).get("refiner_output")
+            or agent_outputs.get("refiner")
         )
 
+        if isinstance(refiner_text, dict):
+            refiner_text = (
+                refiner_text.get("text_markdown")
+                or refiner_text.get("text")
+                or refiner_text.get("content")
+                or ""
+            )
+
+        refiner_text = refiner_text if isinstance(refiner_text, str) else ""
+        refiner_text = (refiner_text or "").strip()
+
+        # --- original user question ------------------------------------------
+        original_question = self._pick_first_str(
+            classifier_original,
+            exec_state.get("wizard_original_query") if isinstance(exec_state, dict) else None,
+            exec_state.get("wizard_reject_original_query") if isinstance(exec_state, dict) else None,
+            exec_state.get("user_question") if isinstance(exec_state, dict) else None,
+            exec_state.get("original_query") if isinstance(exec_state, dict) else None,
+            exec_state.get("question") if isinstance(exec_state, dict) else None,
+            exec_state.get("query") if isinstance(exec_state, dict) else None,
+            getattr(ctx, "query", None),
+        ).strip()
+
+        # --- refined question selection --------------------------------------
+        refined_question = ""
+
+        if refiner_text:
+            if self._looks_like_refiner_text(refiner_text):
+                refined_question = (
+                    self._extract_refined_question_from_refiner(refiner_text)
+                    or self._normalize_refiner_to_question(refiner_text)
+                )
+            else:
+                # Never treat metadata dumps as the "question"
+                if not self._looks_like_metadata_dump(refiner_text):
+                    refined_question = refiner_text
+
+        refined_question = (refined_question or "").strip() or original_question
+
+        # HARD RULE: if original starts with "query ", it always wins
+        if original_question and original_question.lower().startswith("query "):
+            refined_question = original_question
+
+        # Safety: if original looks like a real short question, don't let long/dumpy override it
+        if self._looks_like_user_question(original_question):
+            if self._looks_like_metadata_dump(refined_question) or len(refined_question) > 240:
+                refined_question = original_question
+
+        if not refined_question:
+            refined_question = original_question or "[missing user question]"
+
+        # --- RAG snippet ------------------------------------------------------
+        rag_snippet = ""
+        if isinstance(exec_state, dict):
+            rag_snippet = (exec_state.get("rag_snippet") or exec_state.get("rag_context") or "").strip()
+        rag_present = bool(rag_snippet)
+
+        # --- data_query markdown (if present) ---------------------------------
+        dq_output = agent_outputs.get("data_query")
+        data_query_markdown = ""
+        if isinstance(dq_output, dict):
+            data_query_markdown = (
+                dq_output.get("table_markdown")
+                or dq_output.get("markdown")
+                or dq_output.get("content")
+                or ""
+            )
+        elif isinstance(dq_output, str):
+            data_query_markdown = dq_output
+        data_query_markdown = (data_query_markdown or "").strip()
+
+        rag_metadata = ""
+        if isinstance(exec_state, dict):
+            rag_metadata = (exec_state.get("rag_metadata") or exec_state.get("rag_meta") or "")
+
+        data_query_metadata = ""
+        if isinstance(dq_output, dict):
+            data_query_metadata = (
+                dq_output.get("metadata")
+                or dq_output.get("meta")
+                or dq_output.get("info")
+                or ""
+            )
+
+        user_prompt = build_final_prompt(
+            user_question=refined_question,
+            refiner_text=refiner_text,  # ✅ keep the human-ish refiner text if present
+            rag_present=rag_present,
+            rag_section=rag_snippet,
+            original_user_question=original_question,
+            data_query_markdown=data_query_markdown,
+            config=self.config,
+            rag_metadata=rag_metadata or None,
+            data_query_metadata=data_query_metadata or None,
+        )
+
+        # ✅ PR5: append stable context blocks (ALWAYS include refiner_output section)
+        extra_parts: List[str] = []
+        if data_query_note:
+            extra_parts.append(f"[Data query note] {data_query_note}")
+
+        extra_parts.append("Refiner output (state.refiner_output):")
+        extra_parts.append(refiner_out_text if refiner_out_text else "(none)")
+
+        user_prompt = (
+            user_prompt.rstrip()
+            + "\n\n---\n"
+            + "\n".join(extra_parts).rstrip()
+            + "\n"
+        )
+
+        system_prompt = self._get_system_prompt()
+        return system_prompt, user_prompt
+
     # -----------------------
-    # bookkeeping
+    # bookkeeping (unchanged)
     # -----------------------
 
     def _get_execution_state(self, ctx: AgentContext) -> Dict[str, Any]:
@@ -812,50 +718,37 @@ class FinalAgent(BaseAgent):
         rec["error"] = error
 
     # -----------------------
-    # ✅ LLM resolution via factory + deterministic config
+    # ✅ LLM resolution via factory
     # -----------------------
 
     def _resolve_llm(self, ctx: AgentContext) -> LLMInterface:
-        # If injected explicitly (tests / overrides), honor it.
         if self.llm is not None:
             return self.llm
-
         execution_config = self._get_execution_config(ctx)
-
-        # ✅ This lets request-level use_rag/top_k flow through to LLMFactory
-        return LLMFactory.create(
-            agent_name="final",
-            execution_config=execution_config,
-        )
+        return LLMFactory.create(agent_name="final", execution_config=execution_config)
 
     def update_config(self, config: FinalConfig) -> None:
-        """
-        Update the agent configuration and recompose prompts.
-        """
         self.config = config
         self._update_composed_prompt()
         logger.info(f"[{self.name}] Configuration updated for FinalAgent")
 
     # -----------------------
-    # helpers to build structured FinalState
+    # helpers to build structured FinalState (unchanged)
     # -----------------------
 
     def _build_sources_used(self, ctx: AgentContext, exec_state: Dict[str, Any]) -> List[str]:
         sources: List[str] = []
         agent_outputs = getattr(ctx, "agent_outputs", None) or {}
 
-        # Which agents actually contributed?
         for name in ("refiner", "historian", "critic", "data_query"):
             if name in agent_outputs:
                 sources.append(name)
 
-        # RAG contribution
         rag_ctx = exec_state.get("rag_context")
         rag_enabled = bool(exec_state.get("rag_enabled")) and isinstance(rag_ctx, str) and rag_ctx.strip()
         if rag_enabled:
             sources.append("rag")
 
-        # De-dupe preserving order
         seen = set()
         out: List[str] = []
         for s in sources:
@@ -873,10 +766,6 @@ class FinalAgent(BaseAgent):
         tone: Optional[str] = None,
         target_audience: Optional[str] = None,
     ) -> None:
-        """
-        Populate a structured FinalState into execution_state, so the LangGraph state
-        bridge can set OSSSState.final correctly.
-        """
         if exec_state is None:
             exec_state = self._get_execution_state(ctx)
 
@@ -898,43 +787,27 @@ class FinalAgent(BaseAgent):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # ✅ Attach tone / target audience if available
         if tone is not None:
             final_struct["tone"] = tone
         if target_audience is not None:
             final_struct["target_audience"] = target_audience
 
-        # Store in execution_state
-        exec_state["final"] = final_struct  # canonical for state bridge
+        exec_state["final"] = final_struct
 
-        # Also ensure there's a nested structured_outputs container
         structured = exec_state.get("structured_outputs")
         if not isinstance(structured, dict):
             structured = {}
             exec_state["structured_outputs"] = structured
         structured["final"] = final_struct
 
-    # -----------------------
-    # metadata-strip helper
-    # -----------------------
-
     def _strip_metadata_block(self, text: str) -> str:
-        """
-        Strip any trailing 'Optional extra context (metadata, not user-visible):'
-        section from the final answer so internal metadata is never surfaced.
-
-        This is intentionally conservative: it only removes content starting at
-        the known marker phrase, leaving normal answers (including tables) intact.
-        """
         if not isinstance(text, str):
             return text
-
         marker = "Optional extra context (metadata, not user-visible):"
         lowered = text.lower()
         idx = lowered.find(marker.lower())
         if idx != -1:
             return text[:idx].rstrip()
-
         return text
 
     # -----------------------
@@ -942,34 +815,27 @@ class FinalAgent(BaseAgent):
     # -----------------------
 
     async def run(self, ctx: AgentContext) -> AgentContext:
-        """
-        FinalAgent.run(ctx) – prepares the final answer after processing the query and context.
-        Performs exactly one LLM call (or zero if data_query short-circuit applies).
-        """
         self._mark_started(ctx)
         try:
             exec_state = self._get_execution_state(ctx)
 
-            # --- Structured data-query short-circuit -------------------------
-            # Use the original user query (so we see "query consents", etc.)
+            # Prefer classifier original text for "query ..." detection
+            classifier_original = self._get_classifier_original_text(exec_state)
             original_q = (
-                exec_state.get("original_query")
-                or getattr(ctx, "query", "")  # fallback
+                classifier_original
+                or exec_state.get("wizard_original_query")
+                or exec_state.get("wizard_reject_original_query")
+                or exec_state.get("user_question")
+                or exec_state.get("original_query")
+                or getattr(ctx, "query", "")
                 or ""
-            )
-            original_q = original_q.strip()
+            ).strip()
 
-            # Resolve best refiner text / user question once up front
-            best_refiner_text = self._extract_best_refiner_text(ctx)
-            resolved_question = self._resolve_user_question(
-                ctx, refiner_text=best_refiner_text
-            )
-            role_identity_q = self._is_role_identity_question(
-                resolved_question or original_q
-            )
+            # Resolve role-identity safety using the real question
+            role_identity_q = self._is_role_identity_question(original_q)
 
+            # Structured data-query short-circuit
             if original_q.lower().startswith("query "):
-                # Pull data_query output from context
                 agent_outputs = getattr(ctx, "agent_outputs", None) or {}
                 dq_output = agent_outputs.get("data_query")
 
@@ -987,12 +853,8 @@ class FinalAgent(BaseAgent):
                 data_query_markdown = (data_query_markdown or "").strip()
 
                 if data_query_markdown:
-                    # ✅ Bypass LLM entirely – return ONLY the table(s)
-                    # For structured responses, we still treat this as neutral/informational.
                     tone = "neutral"
-                    target_audience = exec_state.get("target_audience") or getattr(
-                        ctx, "target_audience", None
-                    )
+                    target_audience = exec_state.get("target_audience") or getattr(ctx, "target_audience", None)
 
                     meta = {
                         "agent": self.name,
@@ -1011,7 +873,6 @@ class FinalAgent(BaseAgent):
                         meta=meta,
                     )
 
-                    # Populate structured final state so LangGraph sees a FinalState
                     self._store_structured_final(
                         ctx,
                         data_query_markdown,
@@ -1020,15 +881,12 @@ class FinalAgent(BaseAgent):
                         target_audience=target_audience,
                     )
 
-                    # If we care downstream, record that this was a role-identity
-                    # style query even though it was answered via tables.
                     if role_identity_q:
                         try:
                             exec_state["final"]["role_identity_question"] = True
                         except Exception:
                             pass
 
-                    # Optional: record approximate token usage so observability still works
                     approx_tokens = len(data_query_markdown.split())
                     ctx.add_agent_token_usage(
                         agent_name=self.name,
@@ -1039,28 +897,19 @@ class FinalAgent(BaseAgent):
 
                     self._mark_completed(ctx)
                     return ctx
-                # If no table is available, fall through to normal LLM behavior
 
-            # ✅ Use new composer that understands original_query + data_query tables
             system_prompt, user_prompt = self._compose_prompt(ctx)
 
-            # If this is a role-identity question, enforce a strict "no guessing names" rule
             if role_identity_q:
                 system_prompt = (
                     system_prompt
                     + "\n\nCRITICAL SAFETY RULE (ROLE IDENTITY): "
                     "If the user asks who currently holds a role (e.g., superintendent, principal, "
                     "mayor, president, CEO, etc.), you MUST NOT guess or invent a person's name. "
-                    "Only state a name if it appears explicitly in the provided district documents "
-                    "or retrieved context and is clearly identified as holding that role. "
-                    "If the documents do not clearly state who holds the role, say that you "
-                    "cannot confirm who currently holds the position and suggest contacting the "
-                    "district or checking an official source. Do not speculate."
+                    "Only state a name if it appears explicitly in provided documents/retrieved context. "
+                    "If not stated, say you cannot confirm and suggest an official source. Do not speculate."
                 )
 
-            # -------------------------
-            # Single LLM call
-            # -------------------------
             llm = self._resolve_llm(ctx)
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -1069,36 +918,23 @@ class FinalAgent(BaseAgent):
             response = await llm.ainvoke(messages)
 
             formatted_text = coerce_llm_text(response).strip()
-
-            # 🔹 Strip any trailing metadata block that might have been echoed
             final_answer = self._strip_metadata_block(formatted_text)
 
-            # -------------------------
-            # Tone / target audience
-            # -------------------------
             tone: str = "neutral"
-
-            classifier_profile = exec_state.get("classifier_profile") or exec_state.get(
-                "classifier_result"
-            ) or exec_state.get("task_classification") or exec_state.get("classifier") or {}
-
-            # If upstream ever sets a tone, we respect it; otherwise keep neutral.
+            classifier_profile = (
+                exec_state.get("classifier_profile")
+                or exec_state.get("classifier_result")
+                or exec_state.get("task_classification")
+                or exec_state.get("classifier")
+                or {}
+            )
             if isinstance(classifier_profile, dict):
                 upstream_tone = classifier_profile.get("tone")
                 if isinstance(upstream_tone, str) and upstream_tone.strip():
                     tone = upstream_tone.strip()
 
-            # Target audience can be supplied by workflow/planner or context.
-            target_audience: Optional[str] = (
-                exec_state.get("target_audience")
-                or getattr(ctx, "target_audience", None)
-            )
+            target_audience: Optional[str] = exec_state.get("target_audience") or getattr(ctx, "target_audience", None)
 
-            # -------------------------
-            # Store results & metrics
-            # -------------------------
-
-            # Build meta payload for agent output
             meta: Dict[str, Any] = {
                 "agent": self.name,
                 "original_answer": formatted_text,
@@ -1107,7 +943,6 @@ class FinalAgent(BaseAgent):
                 "role_identity_question": bool(role_identity_q),
             }
 
-            # Record canonical envelope
             ctx.add_agent_output(
                 agent_name=self.name,
                 logical_name="final",
@@ -1118,7 +953,6 @@ class FinalAgent(BaseAgent):
                 meta=meta,
             )
 
-            # Populate structured FinalState inside execution_state
             self._store_structured_final(
                 ctx,
                 final_answer,
@@ -1127,14 +961,12 @@ class FinalAgent(BaseAgent):
                 target_audience=target_audience,
             )
 
-            # If this was a role-identity query, flag it in the structured state
             if role_identity_q:
                 try:
                     exec_state["final"]["role_identity_question"] = True
                 except Exception:
                     pass
 
-            # Handle token usage (best-effort)
             input_tokens = getattr(response, "input_tokens", 0) or 0
             output_tokens = getattr(response, "output_tokens", 0) or 0
             total_tokens = getattr(response, "tokens_used", 0) or 0
@@ -1145,9 +977,7 @@ class FinalAgent(BaseAgent):
                 total_tokens=total_tokens,
             )
 
-            # Mark as completed successfully
             self._mark_completed(ctx)
-
             return ctx
 
         except Exception as e:

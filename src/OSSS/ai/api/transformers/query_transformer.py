@@ -20,32 +20,198 @@ def _safe_get(d: Optional[Dict[str, Any]], key: str, default: Any = None) -> Any
     return d.get(key, default)
 
 
+def _build_sources_from_public_sources(public_sources: Optional[List[Dict[str, Any]]]) -> List[SourceItem]:
+    """
+    Accept sources already in public-ish shape (e.g. answer.sources coming from upstream),
+    and coerce into SourceItem objects.
+    """
+    if not public_sources:
+        return []
+
+    sources: List[SourceItem] = []
+    for s in public_sources:
+        if not isinstance(s, dict):
+            continue
+
+        display_name = s.get("display_name") or s.get("filename") or s.get("source_key") or "Document"
+        sources.append(
+            SourceItem(
+                type=s.get("type") or "document",
+                display_name=display_name,
+                filename=s.get("filename"),
+                source_key=s.get("source_key"),
+                score=s.get("score"),
+                metadata=s.get("metadata") or {},
+            )
+        )
+    return sources
+
+
 def _build_sources_from_rag_hits(rag_hits: Optional[List[Dict[str, Any]]]) -> List[SourceItem]:
+    """
+    Accept internal rag_hits shape (index/search pipeline) and convert to SourceItem objects.
+    """
     if not rag_hits:
         return []
 
     sources: List[SourceItem] = []
     for hit in rag_hits:
+        if not isinstance(hit, dict):
+            continue
+
         filename = hit.get("filename")
-        src = hit.get("source")
+        src = hit.get("source") or hit.get("source_key")
+
         # Prefer a clean display_name, fall back to filename or source
-        display_name = filename or src or "Document"
+        display_name = hit.get("display_name") or filename or src or "Document"
 
         sources.append(
             SourceItem(
-                type="document",
+                type=hit.get("type") or "document",
                 display_name=display_name,
                 filename=filename,
                 source_key=src,
                 score=hit.get("score"),
                 metadata={
-                    "chunk_index": hit.get("chunk_index"),
-                    "id": hit.get("id"),
-                    # You can add page numbers here if you propagate them into rag_hits
+                    "chunk_index": hit.get("chunk_index") or _safe_get(hit.get("metadata"), "chunk_index"),
+                    "id": hit.get("id") or _safe_get(hit.get("metadata"), "id"),
+                    # Add page numbers here if you propagate them into rag_hits
                 },
             )
         )
     return sources
+
+
+def _pick_answer_text_markdown(payload: Dict[str, Any]) -> str:
+    """
+    Choose the public answer.text_markdown.
+
+    Priority:
+      1) pending_action prompt (awaiting == True)
+      2) agent_outputs.final (string)
+      3) agent_outputs.refiner (string)
+      4) payload["answer"]["text_markdown"] (if answer is dict)
+      5) payload["answer"] (if answer is string)
+      6) payload["refiner"]["refined_query"] / ["original_query"] (if present)
+      7) execution_state["raw_user_text"] / ["original_query"] / ["query"]
+    """
+    execution_state = _safe_get(payload, "execution_state", {})
+    if not isinstance(execution_state, dict):
+        execution_state = {}
+
+    # 1) pending_action prompt wins (this is the "first turn still not prompting" fix)
+    pending_action = execution_state.get("pending_action")
+    if isinstance(pending_action, dict) and bool(pending_action.get("awaiting")):
+        for k in (
+            "prompt_text",
+            "prompt",
+            "pending_prompt",
+            "pending_question",
+            "question",
+            "message",
+            "text",
+        ):
+            v = pending_action.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+
+        # Last resort generic yes/no prompt
+        if str(pending_action.get("type") or "").strip().lower() == "confirm_yes_no":
+            return "Please reply **yes** or **no** to continue."
+
+    # 2/3) agent outputs
+    agent_outputs = execution_state.get("agent_outputs")
+    agent_outputs = agent_outputs if isinstance(agent_outputs, dict) else {}
+
+    v = agent_outputs.get("final")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+
+    v = agent_outputs.get("refiner")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+
+    # 4/5) payload answer
+    ans = payload.get("answer")
+    if isinstance(ans, dict):
+        v = ans.get("text_markdown")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    elif isinstance(ans, str) and ans.strip():
+        return ans.strip()
+
+    # 6) refiner dict (sometimes bubbled up top-level)
+    ref = payload.get("refiner")
+    if isinstance(ref, dict):
+        for k in ("refined_query", "original_query"):
+            v = ref.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+
+    # 7) exec_state fallbacks
+    for k in ("raw_user_text", "original_query", "query"):
+        v = execution_state.get(k)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+
+    return ""
+
+
+def _pick_used_rag(payload: Dict[str, Any], execution_state: Dict[str, Any]) -> bool:
+    """
+    Decide answer.used_rag in a robust way.
+    """
+    # If payload.answer is a dict with used_rag, respect it
+    ans = payload.get("answer")
+    if isinstance(ans, dict):
+        v = ans.get("used_rag")
+        if isinstance(v, bool):
+            return v
+
+    # internal execution_state hints
+    for k in ("used_rag", "rag_enabled"):
+        v = execution_state.get(k)
+        if isinstance(v, bool):
+            return v
+
+    rag_hits = execution_state.get("rag_hits")
+    if isinstance(rag_hits, list) and len(rag_hits) > 0:
+        return True
+
+    rag_meta = execution_state.get("rag_meta")
+    if isinstance(rag_meta, dict):
+        v = rag_meta.get("used_rag")
+        if isinstance(v, bool):
+            return v
+        hits = rag_meta.get("hits") or rag_meta.get("results")
+        if isinstance(hits, list) and len(hits) > 0:
+            return True
+
+    return False
+
+
+def _pick_sources(payload: Dict[str, Any], execution_state: Dict[str, Any]) -> List[SourceItem]:
+    """
+    Prefer already-normalized public sources (answer.sources) if present,
+    otherwise fall back to internal execution_state rag_hits.
+    """
+    ans = payload.get("answer")
+    if isinstance(ans, dict):
+        public_sources = ans.get("sources")
+        if isinstance(public_sources, list) and public_sources:
+            return _build_sources_from_public_sources(public_sources)
+
+    rag_hits = execution_state.get("rag_hits")
+    if isinstance(rag_hits, list) and rag_hits:
+        return _build_sources_from_rag_hits(rag_hits)
+
+    rag_meta = execution_state.get("rag_meta")
+    if isinstance(rag_meta, dict):
+        hits = rag_meta.get("hits") or rag_meta.get("results")
+        if isinstance(hits, list) and hits:
+            return _build_sources_from_rag_hits(hits)
+
+    return []
 
 
 def _build_classifier_summary(payload: Dict[str, Any]) -> Optional[ClassifierSummary]:
@@ -64,7 +230,6 @@ def _build_classifier_summary(payload: Dict[str, Any]) -> Optional[ClassifierSum
     if not any([intent, topic, domain]):
         return None
 
-    # Optionally normalize domain/topic for humans – you can map "data_systems" if you want
     return ClassifierSummary(
         intent=intent,
         topic=topic,
@@ -100,11 +265,10 @@ def transform_orchestration_payload_to_query_response(
     include_debug: bool = False,
 ) -> QueryResponse:
     """
-    Transform a raw LangGraph orchestration payload (like the one you pasted)
-    into the stable QueryResponse schema for /api/query.
+    Transform a raw LangGraph orchestration payload into the stable QueryResponse schema.
 
     This is the single choke point where you:
-    - pick the canonical 'answer'
+    - pick the canonical 'answer' (including wizard prompts via pending_action)
     - extract a small classifier summary
     - pull refiner info into a sane shape
     - optionally pack everything else into `debug`
@@ -115,24 +279,28 @@ def transform_orchestration_payload_to_query_response(
     conversation_id = payload.get("conversation_id")
     correlation_id = payload.get("correlation_id")
 
+    # Prefer payload.question if present; otherwise fall back.
     question = (
-        payload.get("original_query")
+        payload.get("question")
+        or payload.get("original_query")
         or payload.get("user_question")
         or _safe_get(payload, "config", {}).get("raw_query")
         or ""
     )
 
-    # 2) Canonical answer: prefer structured final, then top-level "answer"
     execution_state = _safe_get(payload, "execution_state", {})
-    structured_outputs = _safe_get(execution_state, "structured_outputs", {})
-    final_structured = _safe_get(structured_outputs, "final", {})
+    if not isinstance(execution_state, dict):
+        execution_state = {}
 
-    final_answer = final_structured.get("final_answer") or payload.get("answer") or ""
+    # 2) Canonical answer (✅ handles pending_action prompting)
+    text_markdown = _pick_answer_text_markdown(payload)
+    used_rag = _pick_used_rag(payload, execution_state)
+    sources = _pick_sources(payload, execution_state)
 
     answer = AnswerPayload(
-        text_markdown=final_answer,
-        used_rag=bool(final_structured.get("used_rag") or execution_state.get("rag_enabled")),
-        sources=_build_sources_from_rag_hits(execution_state.get("rag_hits")),
+        text_markdown=text_markdown,
+        used_rag=used_rag,
+        sources=sources,
     )
 
     # 3) Classifier summary
@@ -165,7 +333,6 @@ def transform_orchestration_payload_to_query_response(
     debug_payload: Optional[Dict[str, Any]] = None
     if include_debug:
         debug_payload = {
-            # Keep things that are useful when debugging but not needed by normal clients
             "raw_request_config": payload.get("raw_request_config"),
             "execution_state": execution_state,
             "rag_meta": execution_state.get("rag_meta"),

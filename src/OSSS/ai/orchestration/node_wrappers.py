@@ -42,10 +42,11 @@ from OSSS.ai.orchestration.canonicalization import (
     canonicalize_dcg,
 )
 from OSSS.ai.llm.factory import LLMFactory
-from OSSS.ai.orchestration.routing import (
-    should_run_historian,
-    DBQueryRouter,
-)
+
+
+from OSSS.ai.orchestration.routing.historian import should_run_historian
+from OSSS.ai.orchestration.routing.db_query_router import DBQueryRouter
+
 
 logger = get_logger(__name__)
 
@@ -74,7 +75,16 @@ async def _ensure_rag_for_final(
     ec = _get_execution_config(state, runtime)
     if not isinstance(ec, dict):
         ec = {}
-    exec_state["execution_config"] = ec
+
+    # IMPORTANT: do not clobber a richer execution_config already present
+    existing_ec = exec_state.get("execution_config")
+    if isinstance(existing_ec, dict) and existing_ec:
+        merged_ec = dict(existing_ec)
+        merged_ec.update(ec)  # state/runtime view wins for overlapping keys
+        exec_state["execution_config"] = merged_ec
+        ec = merged_ec
+    else:
+        exec_state["execution_config"] = ec
 
     rag_cfg = ec.get("rag")
     if not isinstance(rag_cfg, dict):
@@ -86,6 +96,7 @@ async def _ensure_rag_for_final(
         or ec.get("use_rag")                  # from API raw_execution_config
         or exec_state.get("rag_enabled")      # maybe set by other nodes/routes
         or state.get("rag_context")           # if orchestrator already injected context
+        or exec_state.get("rag_context")      # already present
     )
 
     if not rag_enabled:
@@ -104,7 +115,7 @@ async def _ensure_rag_for_final(
         exec_state.get("user_question")
         or state.get("query")
         or state.get("original_query")
-        or runtime.context.query
+        or getattr(runtime.context, "query", None)
         or ""
     ).strip()
 
@@ -113,8 +124,9 @@ async def _ensure_rag_for_final(
         exec_state["rag_enabled"] = False
         return
 
+    # Allow top_k to come from either rag_cfg.top_k or root ec.top_k
     index = rag_cfg.get("index", "main")
-    top_k = int(rag_cfg.get("top_k", 5))
+    top_k = int(rag_cfg.get("top_k") or ec.get("top_k") or 5)
     embed_model = rag_cfg.get("embed_model", "nomic-embed-text")
 
     logger.info(
@@ -179,6 +191,16 @@ def _ensure_exec_state(state: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(exec_state, dict):
         exec_state = {}
         state["execution_state"] = exec_state
+
+    # ✅ Normalize canonical bookkeeping containers (so API + telemetry never see empty/missing)
+    exec_state.setdefault("successful_agents", [])
+    exec_state.setdefault("failed_agents", [])
+    exec_state.setdefault("errors", [])
+    exec_state.setdefault("structured_outputs", {})
+    exec_state.setdefault("agent_output_index", {})
+    exec_state.setdefault("agent_outputs", {})
+    exec_state.setdefault("agent_output_meta", {})
+    exec_state.setdefault("effective_queries", {})  # used by _record_effective_query
     return exec_state
 
 
@@ -253,6 +275,57 @@ def _merge_successful_agents(state: OSSSState, *agents: str) -> List[str]:
     return merged
 
 
+def _normalize_target_name(target: str) -> str:
+    """
+    Normalize route/router targets to match graph node ids.
+
+    Handles 'END'/'end' for safety as discussed.
+    """
+    t = (target or "").strip()
+    if not t:
+        return ""
+    if t.upper() == "END":
+        return "end"
+    return t
+
+
+def _compute_route_for_planning(exec_state: Dict[str, Any], query: str) -> str:
+    """
+    Option A helper: compute pre-compilation routing using DBQueryRouter signals.
+    Persists canonical keys into exec_state and returns chosen_target.
+    """
+    q = (query or "").strip()
+    request = {"query": q}
+
+    router = DBQueryRouter()
+    signals = router.compute(exec_state, request)
+
+    target = (signals.target or "").strip().lower()
+
+    if target == "data_query":
+        exec_state["route"] = "data_query"
+        exec_state.setdefault("route_key", signals.key or "action")
+    else:
+        exec_state["route"] = exec_state.get("route") or "refiner"
+        exec_state.setdefault("route_key", "informational")
+
+    # Persist observability fields (router is pure, so we set these here)
+    exec_state["route_locked"] = bool(signals.locked)
+    if signals.reason:
+        exec_state["route_reason"] = signals.reason
+
+    # Optional: keep the whole signals bundle around for logging/debug
+    exec_state["routing_signals"] = {
+        "target": signals.target,
+        "locked": signals.locked,
+        "reason": signals.reason,
+        "key": signals.key,
+    }
+
+    return exec_state["route"]
+
+
+
 # ---------------------------------------------------------------------------
 # Planning helpers (Option A)
 # ---------------------------------------------------------------------------
@@ -283,21 +356,47 @@ def apply_option_a_fastpath_planning(
       - This is intentionally *not* invoked from route_gate_node.
       - Orchestrator may further normalize agents, but pattern names are
         always one of {"standard", "data_query"}.
+
+    IMPORTANT FIX:
+      - If chosen_target is empty/None, we will try to compute it from the
+        execution_state + query (if present) via DBQueryRouter, and persist
+        route fields into execution_state so planners don't miss it.
     """
     ec = _ensure_execution_config(exec_state)
 
     # Respect existing caller override if provided
     existing = ec.get("graph_pattern")
     if isinstance(existing, str) and existing.strip():
-        # Orchestrator will clamp to {"standard", "data_query"} if needed.
         return
 
-    if chosen_target == "data_query":
+    # If caller didn't pass a target, attempt to compute one (planner may call
+    # us before it computed route, or may have lost it).
+    ct = _normalize_target_name(chosen_target)
+    if not ct:
+        q = (
+            exec_state.get("query")
+            or exec_state.get("user_question")
+            or exec_state.get("original_query")
+            or exec_state.get("raw_user_text")
+            or ""
+        )
+        try:
+            ct = _compute_route_for_planning(exec_state, str(q))
+        except Exception as e:
+            logger.warning(f"[planning] failed to compute route via DBQueryRouter: {e}")
+            ct = ""
+
+    # Clamp to supported patterns
+    if ct == "data_query":
         ec["graph_pattern"] = "data_query"
         exec_state["planned_agents"] = ["refiner", "data_query"]
+        exec_state.setdefault("route", "data_query")
+        exec_state.setdefault("route_key", "action")
     else:
         ec["graph_pattern"] = "standard"
         exec_state["planned_agents"] = ["refiner", "final"]
+        exec_state.setdefault("route", ct or "refiner")
+        exec_state.setdefault("route_key", "informational")
 
 
 def _record_effective_query(state: dict, agent_name: str, effective_query: str) -> None:
@@ -597,7 +696,6 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
     if isinstance(so, dict):
         existing_so = exec_state.get("structured_outputs")
         if isinstance(existing_so, dict):
-            # merge, with state-level outputs winning
             merged = dict(existing_so)
             merged.update(so)
             exec_state["structured_outputs"] = merged
@@ -615,12 +713,8 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
                 exec_state["refiner_topics"] = refiner_state.get("topics", [])
                 exec_state["refiner_confidence"] = refiner_state.get("confidence", 0.8)
 
-                # Prefer full markdown text if later stored, otherwise use refined question
                 refiner_full = exec_state.get("refiner_full_text")
-                if isinstance(refiner_full, str) and refiner_full.strip():
-                    snippet = refiner_full
-                else:
-                    snippet = refined_question
+                snippet = refiner_full if isinstance(refiner_full, str) and refiner_full.strip() else refined_question
                 if snippet.strip():
                     exec_state.setdefault("refiner_snippet", snippet)
 
@@ -704,7 +798,6 @@ async def convert_state_to_context(state: OSSSState) -> AgentContext:
     return context
 
 
-
 # ---------------------------------------------------------------------------
 # Routing node
 # ---------------------------------------------------------------------------
@@ -729,21 +822,23 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
         },
     )
 
-    context = await convert_state_to_context(state)
+    exec_state = _ensure_exec_state(state)
 
-    router = DBQueryRouter(data_query_target="data_query", default_target="refiner")
-    chosen_target = router(context)
-    route_key = "action" if chosen_target == "data_query" else "informational"
+    router = DBQueryRouter()
+    signals = router.compute(exec_state, {"query": original_query or state.get("query", "") or ""})
+
+    chosen_target = _normalize_target_name(signals.target or "refiner")
+    route_key = (signals.key or ("action" if chosen_target == "data_query" else "informational"))
 
     exec_state = _ensure_exec_state(state)
 
     # Read config for logging only (do NOT mutate planning here; Option A)
-    ec = _get_execution_config(state, runtime)
+    ec_view = _get_execution_config(state, runtime)
 
     logger.info(
-        "Route chosen",
+        "Route chosen (view only)",
         extra={
-            "graph_pattern": ec.get("graph_pattern"),
+            "graph_pattern": (ec_view.get("graph_pattern") if isinstance(ec_view, dict) else None),
             "planned_agents": exec_state.get("planned_agents"),
         },
     )
@@ -764,11 +859,16 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 
     exec_state["route_key"] = route_key
     exec_state["route"] = chosen_target
+    exec_state["route_locked"] = bool(signals.locked)
+    if signals.reason:
+        exec_state["route_reason"] = signals.reason
 
-    for k in ("route_reason", "route_locked"):
-        v = context.execution_state.get(k)
-        if v is not None:
-            exec_state[k] = v
+    exec_state["routing_signals"] = {
+        "target": signals.target,
+        "locked": signals.locked,
+        "reason": signals.reason,
+        "key": signals.key,
+    }
 
     try:
         context.log_trace(
@@ -815,6 +915,7 @@ async def route_gate_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 # ---------------------------------------------------------------------------
 # Node wrappers
 # ---------------------------------------------------------------------------
+
 @circuit_breaker(max_failures=3, reset_timeout=300.0)
 @node_metrics
 async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[str, Any]:
@@ -836,24 +937,24 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
         agent = await create_agent_with_llm("final", state=state, runtime=runtime)
         context = await convert_state_to_context(state)
 
-        # 🔧 Merge AgentContext.execution_state into the graph's execution_state
-        # so we have ONE source of truth that will be written back to LangGraph.
-        graph_exec_state = _ensure_exec_state(state)
+        # ✅ ONE universe: always use the graph's exec_state as canonical
+        exec_state = _ensure_exec_state(state)
         if isinstance(context.execution_state, dict):
-            graph_exec_state.update(context.execution_state)
-
-        exec_state = graph_exec_state
+            exec_state.update(context.execution_state)
 
         # 1) user_question: prefer promoted query, then runtime.context.query
         if not exec_state.get("user_question"):
             uq = (
-                (state.get("query") or "")              # promoted/refined query in graph state
-                or (state.get("original_query") or "")  # preserved original
-                or (runtime.context.query or "")        # raw API query
-                or context.query                        # AgentContext fallback
+                (state.get("query") or "")
+                or (state.get("original_query") or "")
+                or (runtime.context.query or "")
+                or context.query
             )
             if uq:
                 exec_state["user_question"] = uq
+
+        # Also keep a stable "question" field (many API layers use this)
+        state.setdefault("question", exec_state.get("user_question") or "")
 
         # 2) refiner_snippet: try refined_question from refiner_state or full markdown
         if not exec_state.get("refiner_snippet"):
@@ -862,7 +963,6 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
             if isinstance(refiner_state, dict):
                 refined_question = (refiner_state.get("refined_question") or "").strip()
 
-            # if you later store full markdown, you can prefer that:
             refiner_full = (exec_state.get("refiner_full_text") or "").strip()
             snippet_source = refiner_full or refined_question
 
@@ -873,11 +973,7 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
         await _ensure_rag_for_final(state=state, runtime=runtime, exec_state=exec_state)
 
         if not exec_state.get("rag_snippet"):
-            rag_ctx = (
-                exec_state.get("rag_context")
-                or state.get("rag_context")
-            )
-
+            rag_ctx = exec_state.get("rag_context") or state.get("rag_context")
             if isinstance(rag_ctx, str) and rag_ctx.strip():
                 exec_state["rag_snippet"] = rag_ctx.strip()
                 logger.debug(
@@ -890,7 +986,6 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
                     "rag_snippet not set."
                 )
 
-        # (Optional but handy) log what we're about to send to FINAL
         logger.info(
             "[final_node] Prepared context for FinalAgent",
             extra={
@@ -908,9 +1003,12 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
 
         result_context = await agent.run_with_retry(context)
 
+        # ✅ Merge agent-side execution_state back into canonical exec_state
+        if isinstance(getattr(result_context, "execution_state", None), dict):
+            exec_state.update(result_context.execution_state)
+
         final_text = (result_context.agent_outputs.get("final") or "").strip()
         if not final_text:
-            # fail loudly so you notice misconfiguration
             raise NodeExecutionError("Final agent ran but produced no 'final' output")
 
         rag_snippet = exec_state.get("rag_snippet") or state.get("rag_snippet") or ""
@@ -929,30 +1027,35 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
             sources_used=sources_used,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+        state["final_output"] = final_text
 
-        structured = state.get("structured_outputs")
+        # ✅ Canonical structured outputs live in exec_state; mirror to top-level for API.
+        structured = exec_state.get("structured_outputs")
         if not isinstance(structured, dict):
             structured = {}
+            exec_state["structured_outputs"] = structured
 
-        # Prefer structured FinalState from exec_state, if present
-        exec_structured = exec_state.get("structured_outputs")
-        if isinstance(exec_structured, dict) and "final" in exec_structured:
-            structured["final"] = exec_structured["final"]
-        else:
-            # Fallback: at least store the text
-            structured["final"] = final_text
+        structured.setdefault("final", final_text)
+        state["structured_outputs"] = structured
 
-        # 🔧 merge and normalize successful_agents via helper
+        # ✅ Record agent outputs in a stable place (telemetry + API debug)
+        ao = exec_state.setdefault("agent_outputs", {})
+        if isinstance(ao, dict):
+            ao["final"] = final_text
+        aoi = exec_state.setdefault("agent_output_index", {})
+        if isinstance(aoi, dict):
+            aoi["final"] = "final"
+
         succ = _merge_successful_agents(state, "final")
-        # mirror into execution_state as list for debug / API
         exec_state["successful_agents"] = list(succ)
 
-        # exec_state already points at the graph's execution_state dict
         return {
             "execution_state": exec_state,
             "structured_outputs": structured,
             "successful_agents": succ,
+            "final": state.get("final"),
             "final_output": final_text,
+            "question": state.get("question", "") or exec_state.get("user_question", ""),
         }
 
     except Exception as e:
@@ -989,21 +1092,22 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
 
         result_context = await agent.run_with_retry(context)
 
+        # ✅ Merge agent-side execution_state back into canonical exec_state
+        exec_state = _ensure_exec_state(state)
+        if isinstance(getattr(result_context, "execution_state", None), dict):
+            exec_state.update(result_context.execution_state)
+
         # Full raw text from the LLM
         refiner_raw_output = (result_context.agent_outputs.get("refiner") or "").strip()
 
         # Canonicalized refined question
         refined_question = canonicalize_dcg(extract_refined_question(refiner_raw_output))
 
-        # ✅ Ensure we have execution_state before we mutate it
-        exec_state = _ensure_exec_state(state)
-
         # ✅ Preserve full refiner text once for downstream consumers (FinalAgent, API, markdown)
         if isinstance(refiner_raw_output, str) and refiner_raw_output.strip():
             exec_state.setdefault("refiner_full_text", refiner_raw_output)
 
-        # ✅ Guardrail: if canonicalization produced junk (e.g., just "**" or a tiny heading),
-        # fall back to the full raw output so we don't lose information.
+        # ✅ Guardrail: if canonicalization produced junk, fall back to raw
         if isinstance(refined_question, str):
             rq_stripped = refined_question.strip()
             if (
@@ -1013,7 +1117,6 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
             ):
                 refined_question = refiner_raw_output
 
-        # Preserve original query exactly once (first writer wins)
         prev_query = (state.get("query") or "").strip()
         state_original = (state.get("original_query") or "").strip()
         runtime_original = (original_query or "").strip()
@@ -1030,11 +1133,29 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
             agent_output_meta=result_context.execution_state.get("agent_output_meta", {}),
         )
 
-        structured_outputs = result_context.execution_state.get("structured_outputs", {})
+        # ✅ Canonical structured outputs live in exec_state; merge + mirror
+        structured_outputs = exec_state.get("structured_outputs")
+        if not isinstance(structured_outputs, dict):
+            structured_outputs = {}
+            exec_state["structured_outputs"] = structured_outputs
+        if isinstance(getattr(result_context, "execution_state", None), dict):
+            so2 = result_context.execution_state.get("structured_outputs")
+            if isinstance(so2, dict):
+                structured_outputs.update(so2)
+        state["structured_outputs"] = structured_outputs
 
-        # 🔧 merge successful_agents
+        # ✅ Record agent outputs in a stable place (telemetry + API debug)
+        ao = exec_state.setdefault("agent_outputs", {})
+        if isinstance(ao, dict):
+            ao["refiner"] = refiner_raw_output
+        aoi = exec_state.setdefault("agent_output_index", {})
+        if isinstance(aoi, dict):
+            aoi["refiner"] = "refiner"
+
         succ = _merge_successful_agents(state, "refiner")
         exec_state["successful_agents"] = list(succ)
+
+        state.setdefault("question", original_for_state or "")
 
         return {
             "execution_state": exec_state,
@@ -1043,6 +1164,7 @@ async def refiner_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[
             "refiner": refiner_state,
             "successful_agents": succ,
             "structured_outputs": structured_outputs,
+            "question": state.get("question", "") or original_for_state,
         }
 
     except Exception as e:
@@ -1154,14 +1276,12 @@ async def data_query_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Di
 
         exec_state = _ensure_exec_state(state)
 
-        # 🔧 merge successful_agents for data_query + optional dq_node_id alias
         succ_agents = ["data_query"]
         if dq_node_id != "data_query":
             succ_agents.append(dq_node_id)
         succ = _merge_successful_agents(state, *succ_agents)
         exec_state["successful_agents"] = list(succ)
 
-        # 🔧 store latest result in execution_state for downstream consumers
         exec_state["data_query_result"] = canonical_value
         exec_state["data_query_node_id"] = dq_node_id
 
@@ -1261,7 +1381,6 @@ async def critic_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[s
 
         exec_state = _ensure_exec_state(state)
 
-        # 🔧 merge successful_agents
         succ = _merge_successful_agents(state, "critic")
         exec_state["successful_agents"] = list(succ)
 
@@ -1314,7 +1433,6 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 
         exec_state = _ensure_exec_state(state)
 
-        # 🔧 in skip path, keep successful_agents as-is
         succ = _merge_successful_agents(state)
         exec_state["successful_agents"] = list(succ)
 
@@ -1369,7 +1487,6 @@ async def historian_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 
         exec_state = _ensure_exec_state(state)
 
-        # 🔧 merge successful_agents
         succ = _merge_successful_agents(state, "historian")
         exec_state["successful_agents"] = list(succ)
 
@@ -1512,7 +1629,6 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
             if isinstance(aom, dict):
                 agent_output_meta = aom
 
-        # 🔧 merge successful_agents
         succ = _merge_successful_agents(state, "synthesis")
         exec_state["successful_agents"] = list(succ)
 

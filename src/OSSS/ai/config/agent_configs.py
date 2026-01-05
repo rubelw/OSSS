@@ -12,6 +12,8 @@ Architecture:
 - Environment variable and workflow loading
 """
 
+from __future__ import annotations
+
 import os
 from typing import (
     Dict,
@@ -24,6 +26,7 @@ from typing import (
     cast,
     overload,
 )
+
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -106,11 +109,52 @@ class RefinerConfig(BaseModel):
     """Configuration for RefinerAgent behavior and prompt composition."""
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
-    joblib_model_path: Optional[str] = None
+
+    # Model / fast-path settings
+    joblib_model_path: Optional[str] = Field(
+        None, description="Optional path to a joblib-backed lightweight refiner model."
+    )
+    enable_lightweight_refiner: bool = Field(
+        True,
+        description="Enable cheap/heuristic refiner path (no LLM) when safe.",
+    )
+    max_simple_length: int = Field(
+        120,
+        ge=1,
+        le=2000,
+        description="Max length (chars) for which cheap/heuristic paths may skip LLM.",
+    )
+
+    # ✅ Contract-superset safety knobs
+    enable_final_refinement: bool = Field(
+        False,
+        description=(
+            "Enable second-pass refinement (LLM). Dangerous for DB commands in contract modes; "
+            "keep False unless you are sure it cannot rewrite CRUD commands into prose."
+        ),
+    )
+    final_refinement_preview_max_len: int = Field(
+        500,
+        ge=50,
+        le=5000,
+        description="Max chars of execution_state preview sent to final refinement step.",
+    )
+    emit_refiner_output_markdown: bool = Field(
+        True,
+        description="Whether to emit a small markdown summary in execution_state['refiner_output'].",
+    )
+
+    # NLP extraction (non-LLM)
+    enable_nlp_extraction: bool = Field(
+        True, description="Enable non-LLM NLP extraction to augment entities/date filters."
+    )
+    nlp_model_name: str = Field(
+        "en_core_web_sm", description="spaCy model name used by NLPExtractionService."
+    )
 
     # Behavioral settings
-    refinement_level: Literal["minimal", "standard", "detailed", "comprehensive"] = (
-        Field("standard", description="Level of query refinement detail")
+    refinement_level: Literal["minimal", "standard", "detailed", "comprehensive"] = Field(
+        "standard", description="Level of query refinement detail"
     )
     behavioral_mode: Literal["active", "passive", "adaptive"] = Field(
         "adaptive", description="Agent interaction style"
@@ -118,8 +162,6 @@ class RefinerConfig(BaseModel):
     output_format: Literal["raw", "prefixed", "structured"] = Field(
         "structured", description="Format for refined query output"
     )
-
-    joblib_model_path: Optional[str] = None
 
     # Nested configurations
     prompt_config: PromptConfig = Field(default_factory=PromptConfig)
@@ -144,6 +186,33 @@ class RefinerConfig(BaseModel):
             config["behavioral_mode"] = env_val
         if env_val := os.getenv(f"{prefix}_OUTPUT_FORMAT"):
             config["output_format"] = env_val
+
+        # Optional advanced knobs (safe to omit)
+        if env_val := os.getenv(f"{prefix}_JOBLIB_MODEL_PATH"):
+            config["joblib_model_path"] = env_val
+        if env_val := os.getenv(f"{prefix}_ENABLE_LIGHTWEIGHT_REFINER"):
+            config["enable_lightweight_refiner"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_MAX_SIMPLE_LENGTH"):
+            try:
+                config["max_simple_length"] = int(env_val)
+            except ValueError:
+                pass
+
+        if env_val := os.getenv(f"{prefix}_ENABLE_FINAL_REFINEMENT"):
+            config["enable_final_refinement"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_FINAL_REFINEMENT_PREVIEW_MAX_LEN"):
+            try:
+                config["final_refinement_preview_max_len"] = int(env_val)
+            except ValueError:
+                pass
+
+        if env_val := os.getenv(f"{prefix}_EMIT_REFINER_OUTPUT_MARKDOWN"):
+            config["emit_refiner_output_markdown"] = env_val.lower() == "true"
+
+        if env_val := os.getenv(f"{prefix}_ENABLE_NLP_EXTRACTION"):
+            config["enable_nlp_extraction"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_NLP_MODEL_NAME"):
+            config["nlp_model_name"] = env_val
 
         return cls(**config)
 
@@ -333,10 +402,8 @@ class SynthesisConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     # Behavioral settings
-    synthesis_strategy: Literal["comprehensive", "focused", "balanced", "creative"] = (
-        Field(
-            "balanced", description="Strategy for synthesizing multiple agent outputs"
-        )
+    synthesis_strategy: Literal["comprehensive", "focused", "balanced", "creative"] = Field(
+        "balanced", description="Strategy for synthesizing multiple agent outputs"
     )
     thematic_focus: Optional[str] = Field(
         None, description="Optional thematic focus for synthesis"
@@ -344,8 +411,8 @@ class SynthesisConfig(BaseModel):
     meta_analysis: bool = Field(
         True, description="Whether to include meta-analysis of the synthesis process"
     )
-    integration_mode: Literal["sequential", "parallel", "hierarchical", "adaptive"] = (
-        Field("adaptive", description="How to integrate different agent perspectives")
+    integration_mode: Literal["sequential", "parallel", "hierarchical", "adaptive"] = Field(
+        "adaptive", description="How to integrate different agent perspectives"
     )
 
     # Nested configurations
@@ -438,7 +505,6 @@ class FinalConfig(BaseModel):
     include_rag_metadata: bool = True
     include_data_query_tables: bool = True
 
-
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "FinalConfig":
         """Create FinalConfig from dictionary (workflow integration)."""
@@ -460,6 +526,14 @@ class FinalConfig(BaseModel):
         if env_val := os.getenv(f"{prefix}_FALLBACK_NO_CONTEXT_MESSAGE"):
             config["fallback_no_context_message"] = env_val
 
+        if env_val := os.getenv(f"{prefix}_TONE"):
+            config["tone"] = env_val
+
+        if env_val := os.getenv(f"{prefix}_INCLUDE_RAG_METADATA"):
+            config["include_rag_metadata"] = env_val.lower() == "true"
+        if env_val := os.getenv(f"{prefix}_INCLUDE_DATA_QUERY_TABLES"):
+            config["include_data_query_tables"] = env_val.lower() == "true"
+
         return cls(**config)
 
     def to_prompt_config(self) -> Dict[str, Any]:
@@ -472,14 +546,15 @@ class FinalConfig(BaseModel):
         return {
             "answer_style": self.answer_style,
             "include_refiner_context": str(self.include_refiner_context),
-            "enforce_role_identity_guardrails": str(
-                self.enforce_role_identity_guardrails
-            ),
+            "enforce_role_identity_guardrails": str(self.enforce_role_identity_guardrails),
             "rag_required_for_role_identity": str(self.rag_required_for_role_identity),
             "fallback_no_context_message": self.fallback_no_context_message,
             "format_preference": self.output_config.format_preference,
             "custom_constraints": self.behavioral_config.custom_constraints,
             "template_variables": self.prompt_config.template_variables,
+            "tone": self.tone or "",
+            "include_rag_metadata": str(self.include_rag_metadata),
+            "include_data_query_tables": str(self.include_data_query_tables),
         }
 
 
@@ -509,21 +584,15 @@ def get_agent_config_class(agent_type: Literal["critic"]) -> Type[CriticConfig]:
 
 
 @overload
-def get_agent_config_class(
-    agent_type: Literal["historian"],
-) -> Type[HistorianConfig]: ...
+def get_agent_config_class(agent_type: Literal["historian"]) -> Type[HistorianConfig]: ...
 
 
 @overload
-def get_agent_config_class(
-    agent_type: Literal["synthesis"],
-) -> Type[SynthesisConfig]: ...
+def get_agent_config_class(agent_type: Literal["synthesis"]) -> Type[SynthesisConfig]: ...
 
 
 @overload
-def get_agent_config_class(
-    agent_type: Literal["final"],
-) -> Type[FinalConfig]: ...
+def get_agent_config_class(agent_type: Literal["final"]) -> Type[FinalConfig]: ...
 
 
 @overload
@@ -551,44 +620,30 @@ def get_agent_config_class(agent_type: str) -> Type[AgentConfigType]:
 # ---------------------------------------------------------------------------
 
 @overload
-def create_agent_config(
-    agent_type: Literal["refiner"], config_dict: Dict[str, Any]
-) -> RefinerConfig: ...
+def create_agent_config(agent_type: Literal["refiner"], config_dict: Dict[str, Any]) -> RefinerConfig: ...
 
 
 @overload
-def create_agent_config(
-    agent_type: Literal["critic"], config_dict: Dict[str, Any]
-) -> CriticConfig: ...
+def create_agent_config(agent_type: Literal["critic"], config_dict: Dict[str, Any]) -> CriticConfig: ...
 
 
 @overload
-def create_agent_config(
-    agent_type: Literal["historian"], config_dict: Dict[str, Any]
-) -> HistorianConfig: ...
+def create_agent_config(agent_type: Literal["historian"], config_dict: Dict[str, Any]) -> HistorianConfig: ...
 
 
 @overload
-def create_agent_config(
-    agent_type: Literal["synthesis"], config_dict: Dict[str, Any]
-) -> SynthesisConfig: ...
+def create_agent_config(agent_type: Literal["synthesis"], config_dict: Dict[str, Any]) -> SynthesisConfig: ...
 
 
 @overload
-def create_agent_config(
-    agent_type: Literal["final"], config_dict: Dict[str, Any]
-) -> FinalConfig: ...
+def create_agent_config(agent_type: Literal["final"], config_dict: Dict[str, Any]) -> FinalConfig: ...
 
 
 @overload
-def create_agent_config(
-    agent_type: str, config_dict: Dict[str, Any]
-) -> AgentConfigType: ...
+def create_agent_config(agent_type: str, config_dict: Dict[str, Any]) -> AgentConfigType: ...
 
 
-def create_agent_config(
-    agent_type: str, config_dict: Dict[str, Any]
-) -> AgentConfigType:
+def create_agent_config(agent_type: str, config_dict: Dict[str, Any]) -> AgentConfigType:
     """Factory function to create appropriate agent configuration from dictionary."""
     config_class = get_agent_config_class(agent_type)
     return config_class.from_dict(config_dict)

@@ -66,11 +66,6 @@ class WorkflowRequest(BaseModel):
         json_schema_extra={"example": True},
     )
 
-    export_md: Optional[bool] = Field(
-        None,
-        description="Export agent outputs to markdown file (generates wiki file)",
-        json_schema_extra={"example": True},
-    )
 
     @field_validator("agents", mode="before")
     @classmethod

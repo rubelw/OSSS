@@ -1,27 +1,25 @@
 {
-  "$schema": "https://osss.ai/schemas/graph-patterns.schema.json",
   "patterns": {
     "standard": {
-      "description": "Default flow: refiner -> final -> END",
+      "description": "Standard contract: refiner -> final -> END.",
       "entry_point": "refiner",
       "edges": [
-        {
-          "from": "refiner",
-          "to": "final"
-        },
-        {
-          "from": "final",
-          "to": "END"
-        }
+        { "from": "refiner", "to": "final" },
+        { "from": "final", "to": "END" }
       ]
     },
     "data_query": {
-      "description": "Data-centric flow: refiner -> data_query -> (historian for CRUD) -> final -> END",
+      "description": "Superset-capable contract (Option A): default refiner -> final. Refiner may route to data_query. data_query -> (historian | final | END). historian -> final -> END.",
       "entry_point": "refiner",
       "conditional_edges": {
+        "refiner": "refiner_route_query_or_end",
         "data_query": "route_after_data_query"
       },
       "conditional_destinations": {
+        "refiner": {
+          "data_query": "data_query",
+          "final": "final"
+        },
         "data_query": {
           "historian": "historian",
           "final": "final",
@@ -29,19 +27,8 @@
         }
       },
       "edges": [
-        {
-          "from": "refiner",
-          "to": "data_query"
-        },
-        {
-          "from": "historian",
-          "to": "final",
-          "when": "has('historian')"
-        },
-        {
-          "from": "final",
-          "to": "END"
-        }
+        { "from": "historian", "to": "final" },
+        { "from": "final", "to": "END" }
       ]
     }
   }

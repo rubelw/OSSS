@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Optional, Callable, Set
 from pydantic import BaseModel, Field, ConfigDict
 from OSSS.ai.context import AgentContext
 from OSSS.ai.agents.base_agent import BaseAgent, LangGraphNodeDefinition
-from OSSS.ai.orchestration.routing import should_run_historian
+from OSSS.ai.orchestration.routing.historian import should_run_historian
 
 
 # ===========================================================================

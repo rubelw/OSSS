@@ -1,110 +1,186 @@
-"""
-Core graph building and compilation for the OSSS LangGraph backend.
-
-Goals:
-- Make graph patterns and edges configurable via JSON (``graph-patterns.json``).
-- Keep a sane default ``"standard"`` pattern::
-
-      refiner -> final -> END
-
-- Support a ``"data_query"``-centric pattern::
-
-      refiner -> data_query -> (historian for CRUD) -> END
-
-- Support conditional routing via named routers (router registry).
-- Keep ``GraphFactory`` as the ONLY place that mutates the LangGraph
-  ``StateGraph``.
-- Preserve: caching, optional checkpointing, and optional semantic validation.
-
-Option A (✅ implemented here):
-
-- Planning happens **before** graph compilation.
-- ``GraphFactory`` reads/writes only execution_state planning artifacts:
-
-  * ``execution_state["execution_config"]["graph_pattern"]``
-  * ``execution_state["planned_agents"]``
-
-- ``GraphFactory`` must honor ``planned_agents`` as the source of truth for
-  which nodes exist.
-- The route gate node must **not** mutate planning (it is too late once the
-  graph is compiled).
-"""
-
-
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from typing import Any, Dict, Iterable, List, Optional
+"""
+Core graph building and compilation for the OSSS LangGraph backend (Option A).
+
+Option A contract (STRICT):
+- Planning happens BEFORE GraphFactory is invoked.
+- GraphFactory does NOT decide pattern, agents, routing, or plan mutation.
+- GraphFactory compiles a graph that matches execution_plan.pattern (contract pattern).
+- GraphFactory compiles stable supersets per *contract pattern* (PR4) to avoid permutations.
+- Routers ONLY branch among nodes that already exist in the compiled graph.
+
+NON-BACKWARDS-COMPATIBLE POLICY:
+- GraphFactory.compile(plan=ExecutionPlan, ...) is the ONLY public entrypoint.
+- No dict-like config coercion.
+- No create_graph(config) legacy API.
+- No silent fallback to "safe defaults" for unknown patterns or missing supersets.
+- Pattern names MUST exist in graph-patterns.json (PatternService).
+
+Superset contract mode (Fix 1 best-practice):
+- Pattern names are contracts and must be canonical only (e.g. "standard", "data_query").
+- "superset" is NOT a pattern name (never appears in graph-patterns.json, never passed to PatternService).
+- Superset behavior is expressed via compile strategy only:
+    - compile_variant == "superset" and/or execution_state.execution_config.agents_superset == True
+"""
+
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 import os
-import pathlib
-import hashlib
 
-from langgraph.graph import StateGraph, END
-
-from OSSS.ai.orchestration.state_schemas import OSSSState, OSSSContext
-from OSSS.ai.orchestration.node_wrappers import (
-    refiner_node,
-    data_query_node,
-    critic_node,
-    historian_node,
-    synthesis_node,
-    final_node,
-    apply_option_a_fastpath_planning,
-)
 from OSSS.ai.orchestration.memory_manager import OSSSMemoryManager
 from OSSS.ai.observability import get_logger
 
-from .graph_cache import GraphCache, CacheConfig
-from .semantic_validation import (
-    WorkflowSemanticValidator,
-    ValidationError,
-)
-from .patterns.spec import PatternRegistry, RouterRegistry, GraphPattern
+# ✅ strict canonical plan type (Option A)
+from OSSS.ai.orchestration.planning.plan import ExecutionPlan
 
-from OSSS.ai.orchestration.nodes.validator_node import ValidatorNode
-from OSSS.ai.orchestration.nodes.terminator_node import TerminatorNode
-from OSSS.ai.orchestration.nodes.aggregator_node import AggregatorNode
-from OSSS.ai.orchestration.nodes.decision_node import DecisionNode
+from .graph_cache import GraphCache, CacheConfig
+from .semantic_validation import WorkflowSemanticValidator, ValidationError
+
+from .patterns.spec import GraphPattern
+from .routers.registry import RouterRegistry
+
+from .pattern_service import PatternService, PatternServiceConfig, PatternServiceError
+from .node_registry import NodeRegistry
+from .graph_assembler import GraphAssembler, AssembleInput
 
 
 class GraphBuildError(Exception):
     """Raised when graph building fails."""
 
 
+# ---------------------------------------------------------------------------
+# Internal config (GraphFactory only)
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class GraphConfig:
     agents_to_run: List[str]
-    pattern_name: str = "standard"
+    pattern_name: str
     execution_state: Optional[Dict[str, Any]] = None
-    chosen_target: Optional[str] = None
     enable_checkpoints: bool = False
     memory_manager: Optional[OSSSMemoryManager] = None
     cache_enabled: bool = True
     enable_validation: bool = False
     validator: Optional[WorkflowSemanticValidator] = None
     validation_strict_mode: bool = False
+    # ✅ PR4 compile strategy label (NOT a pattern)
+    compile_variant: str = "superset"
+
+
+# ---------------------------------------------------------------------------
+# Strict helpers
+# ---------------------------------------------------------------------------
+
+
+_END = "END"
+
+
+def _ensure_dict(x: Any, *, name: str) -> Dict[str, Any]:
+    if x is None:
+        return {}
+    if not isinstance(x, dict):
+        raise TypeError(f"{name} must be dict when provided")
+    return x
+
+
+def _ensure_execution_config(exec_state: Dict[str, Any]) -> Dict[str, Any]:
+    ec = exec_state.get("execution_config")
+    if ec is None:
+        ec = {}
+        exec_state["execution_config"] = ec
+        return ec
+    if not isinstance(ec, dict):
+        raise TypeError("execution_state['execution_config'] must be dict when provided")
+    return ec
+
+
+def _normalize_pattern_name(pattern: Any) -> str:
+    if not isinstance(pattern, str):
+        raise TypeError("ExecutionPlan.pattern must be a string")
+    p = pattern.strip().lower()
+    if not p:
+        raise ValueError("ExecutionPlan.pattern must be a non-empty string")
+    return p
+
+
+def _normalize_agents_list(agents: Any) -> List[str]:
+    """
+    Option A:
+    - ExecutionPlan.agents may be list[str] or tuple[str, ...] (planning.types uses Tuple).
+    - No empty, no non-str, no empty-string entries.
+    """
+    if not isinstance(agents, (list, tuple)):
+        raise TypeError("ExecutionPlan.agents must be list[str] or tuple[str, ...]")
+    if not agents:
+        raise ValueError("ExecutionPlan.agents must be a non-empty sequence[str]")
+
+    out: List[str] = []
+    seen: set[str] = set()
+    for a in agents:
+        if not isinstance(a, str):
+            raise TypeError("ExecutionPlan.agents must contain only str")
+        s = a.strip().lower()
+        if not s:
+            raise ValueError("ExecutionPlan.agents contains an empty string")
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+
+    if not out:
+        raise ValueError("ExecutionPlan.agents must contain at least one non-empty agent name")
+    return out
+
+
+def _is_node_name(x: Any) -> bool:
+    if not isinstance(x, str):
+        return False
+    s = x.strip()
+    if not s:
+        return False
+    return s != _END
+
+
+def _norm_node(x: str) -> str:
+    return x.strip().lower()
+
+
+def _norm_compile_variant(variant: Optional[str], *, default: str) -> str:
+    """
+    PR4: compile_variant is NOT a pattern. It is a cache/strategy label only.
+    Always returns a non-empty string.
+    """
+    v = (variant or "").strip()
+    return v or default
+
+
+# ---------------------------------------------------------------------------
+# GraphFactory (Option A strict, contract superset mode)
+# ---------------------------------------------------------------------------
 
 
 class GraphFactory:
     """
-    Builds a LangGraph StateGraph from:
-      - a list of agents to include
-      - a selected pattern (from graph-patterns.json)
-      - optional conditional routing (router registry)
-
-    IMPORTANT: this class is the ONLY place that calls:
-      - graph.add_node(...)
-      - graph.add_edge(...)
-      - graph.add_conditional_edges(...)
-      - graph.compile(...)
-
-    Option A:
-      - planning is applied via execution_state BEFORE compilation
-      - planned_agents is treated as the authoritative set of nodes to add
+    Option A (contract superset mode, no back-compat):
+    - Consumes plan.pattern as the source of truth (contract pattern only).
+    - Derives stable superset node list from graph-patterns.json per pattern (PR4).
+    - Unknown pattern => hard failure (with helpful diagnostics).
+    - Empty derived superset => hard failure.
+    - If plan.agents contains something not in the derived superset => hard failure.
+    - Superset behavior is expressed via compile_variant (e.g., "superset"), NOT via a "superset" pattern.
     """
 
-    PRESTEP_AGENTS = {"classifier"}
     DEFAULT_PATTERNS_PATH = "src/OSSS/ai/orchestration/patterns/graph-patterns.json"
+
+    # Deterministic preferred ordering for known OSSS nodes.
+    _PREFERRED_AGENT_ORDER: tuple[str, ...] = ("refiner", "data_query", "historian", "final")
+
+    # ✅ PR4 compile strategy label (NOT a pattern)
+    DEFAULT_COMPILE_VARIANT = "superset"
+
+    # ✅ Contract patterns that MUST exist in graph-patterns.json
+    _CANONICAL_PATTERNS: tuple[str, ...] = ("standard", "data_query")
 
     def __init__(
         self,
@@ -118,1344 +194,411 @@ class GraphFactory:
         self.cache = GraphCache(cache_config) if cache_config else GraphCache()
         self.default_validator = default_validator
 
-        self.patterns_path = (
-            patterns_path
-            or os.getenv("OSSS_GRAPH_PATTERNS_PATH")
-            or self.DEFAULT_PATTERNS_PATH
-        )
-        self.pattern_registry = PatternRegistry()
-        self._load_patterns(self.patterns_path)
+        self.patterns_path = patterns_path or os.getenv("OSSS_GRAPH_PATTERNS_PATH") or self.DEFAULT_PATTERNS_PATH
 
+        # ✅ canonical runtime registry
         self.routers = router_registry or RouterRegistry()
-        self._register_default_routers()
 
-        self.node_functions = {
-            "refiner": refiner_node,
-            "data_query": data_query_node,
-            "critic": critic_node,
-            "historian": historian_node,
-            "synthesis": synthesis_node,
-            "validator": ValidatorNode,
-            "terminator": TerminatorNode,
-            "aggregator": AggregatorNode,
-            "decision": DecisionNode,
-            # ✅ canonical terminal node is "final"
-            "final": final_node,
-        }
+        self.pattern_service = PatternService(PatternServiceConfig(patterns_path=self.patterns_path))
+        self.pattern_service.load()
+
+        self.node_registry = NodeRegistry()
+        self.assembler = GraphAssembler(nodes=self.node_registry, routers=self.routers)
+
+        # ✅ strict contract mode: ensure canonical contract patterns exist in graph-patterns.json
+        self._assert_canonical_patterns_present()
 
         self.logger.info(
-            "GraphFactory initialized",
+            "GraphFactory initialized (Option A, contract superset mode)",
             extra={
                 "patterns_path": self.patterns_path,
-                "cache_enabled": bool(self.cache),
-                "validation_enabled": bool(default_validator),
+                "cache_enabled": True,
+                "canonical_patterns": list(self._CANONICAL_PATTERNS),
+                "default_compile_variant": self.DEFAULT_COMPILE_VARIANT,
             },
         )
 
-    # ------------------------------------------------------------------
-    # CACHE CONTROL (ADMIN / DEBUG)
-    # ------------------------------------------------------------------
-
-
-
-    def clear_cache(self) -> None:
-        """
-        Clear all compiled graph entries from the GraphCache.
-
-        Intended for:
-        - hot reloading when graph-patterns.json changes
-        - routing / planning logic changes
-        - debugging cache behavior
-        """
-        if not self.cache:
-            self.logger.warning(
-                "clear_cache called but cache is not initialized",
-                extra={"event": "graph_cache_clear_skip"},
-            )
-            return
-
-        keys_before = self.cache.get_cache_keys()
-        self.logger.info(
-            "Clearing GraphFactory graph cache",
-            extra={
-                "event": "graph_cache_clear_all",
-                "cached_count": len(keys_before),
-                "cached_keys": keys_before,
-            },
-        )
-        self.cache.clear()
-
-    def clear_pattern_cache(self, pattern_name: str, version: Optional[str] = None) -> int:
-        """
-        Remove cached graphs for a specific pattern.
-
-        - If version is provided, only that version is removed
-        - If version is None, all versions for that pattern are removed
-        """
-        if not self.cache:
-            self.logger.warning(
-                "clear_pattern_cache called but cache is not initialized",
-                extra={"event": "graph_cache_clear_pattern_skip", "pattern_name": pattern_name},
-            )
-            return 0
-
-        removed = self.cache.remove_pattern(pattern_name, version=version)
-        self.logger.info(
-            "Pattern cache cleared",
-            extra={
-                "event": "graph_cache_clear_pattern",
-                "pattern_name": pattern_name,
-                "version": version,
-                "removed": removed,
-            },
-        )
-        return removed
-
-    # ------------------------------------------------------------------
-    # PATTERNS
-    # ------------------------------------------------------------------
-
-    def _load_patterns(self, path: str) -> None:
-        """
-        Load graph patterns from JSON.
-        """
-        self.logger.info(
-            "Loading graph patterns",
-            extra={"path": path},
-        )
-        p = pathlib.Path(path)
-        if not p.exists():
-            self.logger.error(
-                "Patterns file not found",
-                extra={"path": path},
-            )
-            raise GraphBuildError(f"Patterns file not found: {path}")
-        try:
-            self.pattern_registry.load_from_file(str(p))
-            self.logger.info(
-                "Graph patterns loaded",
-                extra={"path": path},
-            )
-        except Exception as e:
-            self.logger.exception(
-                "Failed to load graph patterns",
-                extra={"path": path, "error": str(e)},
-            )
-            raise
-
-    def _patterns_fingerprint(self) -> str:
-        """
-        Fingerprint patterns so cache invalidates when JSON changes.
-        Safe if file missing/unreadable.
-        """
-        try:
-            raw = pathlib.Path(self.patterns_path).read_bytes()
-            fp = hashlib.sha256(raw).hexdigest()[:16]
-            self.logger.debug(
-                "Computed patterns fingerprint",
-                extra={"fingerprint": fp},
-            )
-            return fp
-        except Exception as e:
-            self.logger.warning(
-                "Failed to compute patterns fingerprint; using 'nohash'",
-                extra={"error": str(e)},
-            )
-            return "nohash"
-
-    # ------------------------------------------------------------------
-    # ROUTERS
-    # ------------------------------------------------------------------
-
-    def _register_default_routers(self) -> None:
-        """
-        Register named routers used by conditional patterns.
-
-        Router signature:
-          fn(state: OSSSState) -> str   (must return a destination key)
-
-        NOTE:
-        - If a router with the same name is already present in self.routers,
-          we will NOT re-register it. This avoids noisy "Overwriting existing router"
-          warnings when a shared RouterRegistry is passed in with defaults
-          already installed elsewhere.
-        """
-        self.logger.info("Registering default routers")
-
-        # Legacy router kept for compatibility (if ever referenced)
-        def refiner_route_query_or_reflect(state: OSSSState) -> str:
-            decision = "data_query" if self._should_run_data_query(state) else "reflect"
-            self.logger.debug(
-                "[router:refiner_route_query_or_reflect] evaluated",
-                extra={
-                    "decision": decision,
-                },
-            )
-            return decision
-
-        # NEW: router used by the "data_query" pattern to decide
-        # whether to go to historian or END after data_query.
-        def route_after_data_query(state: OSSSState) -> str:
-            """
-            Decide where to go after data_query:
-
-            - If the intent/action_type is CRUD (create/update/delete)
-              AND historian is among available agents → 'historian'
-            - Otherwise → 'END'
-            """
-            # Try to read execution_state
-            exec_state = None
-            if isinstance(state, dict):
-                exec_state = state.get("execution_state")
-            if not isinstance(exec_state, dict):
-                exec_state = {}
-
-            # Pull intent from state or execution_state
-            intent_raw = getattr(state, "intent", None) or exec_state.get("intent")
-            intent = (str(intent_raw or "")).strip().lower()
-
-            # Try to read query_profile (same shape used by _should_run_data_query)
-            qp = None
-            aom = exec_state.get("agent_output_meta")
-            if isinstance(aom, dict):
-                qp = aom.get("_query_profile") or aom.get("query_profile")
-            if not isinstance(qp, dict):
-                qp = {}
-
-            action_type_raw = qp.get("action_type", qp.get("action", ""))
-            action_type = (str(action_type_raw or "")).strip().lower()
-
-            is_crud = intent in {"create", "update", "delete"} or action_type in {
-                "create",
-                "update",
-                "delete",
-            }
-
-            # Check which agents are actually present in this compiled graph
-            available = set(getattr(state, "available_agents", []) or [])
-
-            decision = "END"
-            if is_crud and "historian" in available:
-                decision = "historian"
-
-            self.logger.debug(
-                "[router:route_after_data_query] evaluated",
-                extra={
-                    "intent": intent,
-                    "action_type": action_type,
-                    "is_crud": is_crud,
-                    "available_agents": list(available),
-                    "decision": decision,
-                },
-            )
-            return decision
-
-        # Helper to check existence in a duck-typed way
-        def _router_exists(name: str) -> bool:
-            if hasattr(self.routers, "has"):
-                try:
-                    return bool(self.routers.has(name))  # type: ignore[attr-defined]
-                except Exception:
-                    # Fall back to attribute probing if 'has' misbehaves
-                    pass
-            # Best-effort fallback: look for _routers dict if present
-            routers_dict = getattr(self.routers, "_routers", None)
-            if isinstance(routers_dict, dict):
-                return name in routers_dict
-            return False
-
-        # Register refiner_route_query_or_reflect only if not already present
-        if not _router_exists("refiner_route_query_or_reflect"):
-            self.routers.register(
-                "refiner_route_query_or_reflect", refiner_route_query_or_reflect
-            )
-        else:
-            self.logger.debug(
-                "Skipping registration of router; already present",
-                extra={"router_name": "refiner_route_query_or_reflect"},
-            )
-
-        # Register route_after_data_query only if not already present
-        if not _router_exists("route_after_data_query"):
-            self.routers.register("route_after_data_query", route_after_data_query)
-        else:
-            self.logger.debug(
-                "Skipping registration of router; already present",
-                extra={"router_name": "route_after_data_query"},
-            )
-
-        # Try to surface the actual router names if the registry supports it
-        router_names: List[str]
-        if hasattr(self.routers, "list_names"):
+    def _assert_canonical_patterns_present(self) -> None:
+        missing: list[str] = []
+        for p in self._CANONICAL_PATTERNS:
             try:
-                router_names = list(self.routers.list_names())  # type: ignore[attr-defined]
-            except Exception:
-                router_names = ["refiner_route_query_or_reflect", "route_after_data_query"]
-        else:
-            router_names = ["refiner_route_query_or_reflect", "route_after_data_query"]
+                if self.pattern_service.get(p) is None:
+                    missing.append(p)
+            except PatternServiceError:
+                missing.append(p)
+
+        if missing:
+            raise GraphBuildError(
+                "Option A invariant violated: graph-patterns.json is missing canonical contract pattern(s) "
+                f"{missing}. Required: {list(self._CANONICAL_PATTERNS)}. "
+                "Fix: add these patterns to graph-patterns.json (and ensure PatternService points to that file)."
+            )
+
+    # ------------------------------------------------------------------
+    # Public: Option A entrypoint (ONLY)
+    # ------------------------------------------------------------------
+
+    def compile(
+        self,
+        *,
+        plan: ExecutionPlan,
+        enable_checkpoints: bool = False,
+        memory_manager: Optional[OSSSMemoryManager] = None,
+        cache_enabled: bool = True,
+        execution_state: Optional[dict] = None,
+        enable_validation: bool = False,
+        validator: Optional[WorkflowSemanticValidator] = None,
+        validation_strict_mode: bool = False,
+        # ✅ PR4 compile strategy label (NOT a pattern)
+        compile_variant: Optional[str] = None,
+    ) -> Any:
+        if plan is None:
+            raise ValueError("ExecutionPlan is required")
+
+        variant = _norm_compile_variant(compile_variant, default=self.DEFAULT_COMPILE_VARIANT)
+
+        raw_pattern = getattr(plan, "pattern", None)
+        raw_agents = getattr(plan, "agents", None)
 
         self.logger.info(
-            "Default routers registered",
-            extra={"routers": router_names},
-        )
-
-    def _should_run_data_query(self, state: OSSSState) -> bool:
-        """
-        Determines if data_query should run.
-
-        Uses execution_state.route / route_key / route_locked (from DBQueryRouter)
-        first, and falls back to execution_state.agent_output_meta._query_profile /
-        query_profile if present.
-        """
-        self.logger.info(
-            "[graph] _should_run_data_query invoked",
+            "[graph_factory] compile boundary (plan invariants)",
             extra={
-                "state_type": type(state).__name__,
-                "state_keys": list(state.keys()) if isinstance(state, dict) else None,
+                "plan_object_id": id(plan),
+                "plan_pattern_raw": raw_pattern,
+                "plan_agents_raw": raw_agents,
+                "compile_variant": variant,
             },
         )
+
+        pattern = _normalize_pattern_name(raw_pattern)
+
+        # ✅ Contract mode: "superset" must NEVER be a pattern name
+        if pattern == "superset":
+            raise GraphBuildError(
+                "Contract superset mode: 'superset' is NOT a valid pattern name. "
+                "Emit pattern='standard' or 'data_query' and set compile_variant='superset' "
+                "(and/or execution_config.agents_superset=True)."
+            )
+
+        if pattern not in set(self._CANONICAL_PATTERNS):
+            raise GraphBuildError(
+                "Contract superset mode: ExecutionPlan.pattern must be a canonical contract pattern "
+                f"(allowed={list(self._CANONICAL_PATTERNS)}); got {pattern!r}"
+            )
+
+        plan_agents = _normalize_agents_list(raw_agents)
+
+        # ------------------------------------------------------------------
+        # ✅ Option A invariant (fail fast):
+        #   execution_state["execution_plan"]["pattern"] must exist and match
+        # ------------------------------------------------------------------
+        exec_state = _ensure_dict(execution_state, name="execution_state")
+
+        ep = exec_state.get("execution_plan")
+        if ep is None:
+            self.logger.error(
+                "[graph_factory] invariant violated: missing execution_plan",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_present": False,
+                    "execution_state_keys": sorted(list(exec_state.keys())),
+                },
+            )
+            raise GraphBuildError("Option A invariant violated: execution_state['execution_plan'] missing at compile time")
+
+        if not isinstance(ep, dict):
+            raise TypeError("execution_state['execution_plan'] must be dict when provided")
+
+        ep_keys = sorted([str(k) for k in ep.keys()])
+        ep_pattern_raw = ep.get("pattern")
+
+        if ep_pattern_raw is None:
+            self.logger.error(
+                "[graph_factory] invariant violated: missing execution_plan.pattern",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_keys": ep_keys,
+                },
+            )
+            raise GraphBuildError(
+                "Option A invariant violated: execution_state['execution_plan']['pattern'] missing at compile time"
+            )
 
         try:
-            exec_state = state.get("execution_state") if isinstance(state, dict) else None
-            if not isinstance(exec_state, dict):
-                self.logger.info(
-                    "[graph] _should_run_data_query: execution_state missing or not dict; skipping data_query",
-                    extra={
-                        "execution_state_type": type(exec_state).__name__
-                        if exec_state is not None
-                        else None,
-                        "reason": "execution_state_not_dict_or_missing",
-                    },
-                )
-                return False
-
-            # ------------------------------------------------------------------
-            # 1) Honor explicit routing from DBQueryRouter (route-lock)
-            # ------------------------------------------------------------------
-            route = exec_state.get("route")
-            route_key_raw = exec_state.get("route_key", "")
-            route_key = str(route_key_raw).strip().lower() if route_key_raw is not None else ""
-            route_locked = bool(exec_state.get("route_locked"))
-            route_reason = exec_state.get("route_reason")
-
-            if route == "data_query":
-                self.logger.info(
-                    "[graph] _should_run_data_query: honoring explicit DBQueryRouter route",
-                    extra={
-                        "route": route,
-                        "route_key": route_key,
-                        "route_locked": route_locked,
-                        "route_reason": route_reason,
-                        "reason": "explicit_route_data_query",
-                    },
-                )
-                return True
-
-            # Optional: if you want a locked 'action' route_key to also force data_query
-            if route_key == "action" and route_locked:
-                self.logger.info(
-                    "[graph] _should_run_data_query: honoring locked 'action' route_key from router",
-                    extra={
-                        "route": route,
-                        "route_key": route_key,
-                        "route_locked": route_locked,
-                        "route_reason": route_reason,
-                        "reason": "route_key_action_locked",
-                    },
-                )
-                return True
-
-            # ------------------------------------------------------------------
-            # 2) Fallback to agent_output_meta / query_profile heuristics
-            # ------------------------------------------------------------------
-            aom = exec_state.get("agent_output_meta")
-            if not isinstance(aom, dict):
-                self.logger.info(
-                    "[graph] _should_run_data_query: agent_output_meta missing or not dict; skipping data_query",
-                    extra={
-                        "agent_output_meta_type": type(aom).__name__
-                        if aom is not None
-                        else None,
-                        "reason": "agent_output_meta_not_dict_or_missing",
-                    },
-                )
-                return False
-
-            qp = aom.get("_query_profile") or aom.get("query_profile")
-            if not isinstance(qp, dict):
-                self.logger.info(
-                    "[graph] _should_run_data_query: no usable query_profile; skipping data_query",
-                    extra={
-                        "query_profile_type": type(qp).__name__ if qp is not None else None,
-                        "has__query_profile": "_query_profile" in aom,
-                        "has_query_profile": "query_profile" in aom,
-                        "agent_output_meta_keys": list(aom.keys()),
-                        "reason": "query_profile_not_dict_or_missing",
-                    },
-                )
-                return False
-
-            # Extract fields
-            intent_raw = qp.get("intent", "")
-            action_type_raw = qp.get("action_type", qp.get("action", ""))
-            is_query_raw = qp.get("is_query", False)
-
-            intent = str(intent_raw).lower()
-            action_type = str(action_type_raw).lower()
-            is_query = bool(is_query_raw)
-
-            has_table = bool(qp.get("table"))
-            has_tables = bool(qp.get("tables"))
-            has_topic = bool(qp.get("topic"))
-
-            self.logger.info(
-                "[graph] _should_run_data_query: extracted query_profile fields",
-                extra={
-                    "intent": intent,
-                    "intent_raw": intent_raw,
-                    "action_type": action_type,
-                    "action_type_raw": action_type_raw,
-                    "is_query_flag": is_query,
-                    "has_table": has_table,
-                    "has_tables": has_tables,
-                    "has_topic": has_topic,
-                    "query_profile_keys": list(qp.keys()),
-                },
-            )
-
-            # Decision logic
-
-            if intent != "action":
-                self.logger.info(
-                    "[graph] _should_run_data_query: NOT running data_query (intent != 'action')",
-                    extra={
-                        "intent": intent,
-                        "reason": "intent_not_action",
-                    },
-                )
-                return False
-
-            if action_type == "query":
-                self.logger.info(
-                    "[graph] _should_run_data_query: running data_query (action_type == 'query')",
-                    extra={
-                        "intent": intent,
-                        "action_type": action_type,
-                        "is_query_flag": is_query,
-                        "reason": "action_type_query",
-                    },
-                )
-                return True
-
-            if is_query:
-                self.logger.info(
-                    "[graph] _should_run_data_query: running data_query (is_query flag true)",
-                    extra={
-                        "intent": intent,
-                        "action_type": action_type,
-                        "is_query_flag": is_query,
-                        "reason": "is_query_flag_true",
-                    },
-                )
-                return True
-
-            if has_table or has_tables or has_topic:
-                self.logger.info(
-                    "[graph] _should_run_data_query: running data_query (table/tables/topic present)",
-                    extra={
-                        "intent": intent,
-                        "action_type": action_type,
-                        "is_query_flag": is_query,
-                        "has_table": has_table,
-                        "has_tables": has_tables,
-                        "has_topic": has_topic,
-                        "reason": "schema_hints_present",
-                    },
-                )
-                return True
-
-            self.logger.info(
-                "[graph] _should_run_data_query: NOT running data_query (no query signals matched)",
-                extra={
-                    "intent": intent,
-                    "action_type": action_type,
-                    "is_query_flag": is_query,
-                    "has_table": has_table,
-                    "has_tables": has_tables,
-                    "has_topic": has_topic,
-                    "reason": "no_match",
-                },
-            )
-            return False
-
+            ep_pattern = _normalize_pattern_name(str(ep_pattern_raw))
         except Exception as e:
-            self.logger.exception(
-                "[graph] _should_run_data_query: exception while evaluating; defaulting to False",
-                extra={"error": str(e)},
+            self.logger.error(
+                "[graph_factory] invariant violated: invalid execution_plan.pattern",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_pattern_raw": ep_pattern_raw,
+                    "execution_plan_keys": ep_keys,
+                },
             )
-            return False
+            raise GraphBuildError(
+                "Option A invariant violated: execution_state['execution_plan']['pattern'] is invalid"
+            ) from e
+
+        if ep_pattern == "superset":
+            raise GraphBuildError(
+                "Contract superset mode invariant violated: execution_state['execution_plan']['pattern'] "
+                "must be a canonical contract pattern (standard|data_query), not 'superset'."
+            )
+
+        if ep_pattern != pattern:
+            self.logger.error(
+                "[graph_factory] invariant violated: pattern mismatch",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_pattern_normalized": ep_pattern,
+                    "execution_plan_pattern_raw": ep_pattern_raw,
+                    "execution_plan_keys": ep_keys,
+                },
+            )
+            raise GraphBuildError(
+                "Option A invariant violated: plan.pattern != execution_state.execution_plan.pattern "
+                f"(plan={pattern!r}, execution_state={ep_pattern!r}, plan_id={id(plan)}, execution_plan_keys={ep_keys})"
+            )
+
+        pattern_spec = self.pattern_service.get(pattern)
+        if pattern_spec is None:
+            raise GraphBuildError(
+                f"Unknown graph pattern: {pattern!r}. Contract mode requires graph-patterns.json to define "
+                f"{list(self._CANONICAL_PATTERNS)} (patterns_path={self.patterns_path!r})."
+            )
+
+        # ✅ PR4: derive stable superset from the pattern spec (STRICT)
+        superset_agents = self._derive_superset_agents_from_pattern(pattern, pattern_spec)
+
+        # STRICT: ensure every planned agent exists in compiled superset
+        superset_set = set(superset_agents)
+        missing = [a for a in plan_agents if a not in superset_set]
+        if missing:
+            raise GraphBuildError(
+                f"ExecutionPlan.agents includes agents not present in derived superset for pattern {pattern!r}: {missing}. "
+                f"Derived superset={superset_agents}, plan_agents={plan_agents}"
+            )
+
+        # ------------------------------------------------------------------
+        # Observability only (do NOT overwrite authoritative ep['pattern'])
+        # ------------------------------------------------------------------
+        ep.setdefault("agents", list(plan_agents))
+        ep["compiled_superset_agents"] = list(superset_agents)
+        ep["compile_variant"] = variant
+
+        ec = _ensure_execution_config(exec_state)
+        ec["graph_pattern"] = pattern
+        ec.setdefault("compile_variant", variant)
+        ec.setdefault("agents_superset", True)
+
+        cfg = GraphConfig(
+            agents_to_run=superset_agents,
+            pattern_name=pattern,
+            execution_state=exec_state,
+            enable_checkpoints=enable_checkpoints,
+            memory_manager=memory_manager,
+            cache_enabled=cache_enabled,
+            enable_validation=enable_validation,
+            validator=validator,
+            validation_strict_mode=validation_strict_mode,
+            compile_variant=variant,
+        )
+
+        return self._create_graph_from_resolved(
+            cfg,
+            resolved_pattern=pattern,
+            resolved_agents=superset_agents,
+            pattern_spec=pattern_spec,
+        )
 
     # ------------------------------------------------------------------
-    # OPTION A — PRE-COMPILE PLANNING + STRICT NODE SET
+    # Internals
     # ------------------------------------------------------------------
 
-    def _ensure_execution_config(self, exec_state: Dict[str, Any]) -> Dict[str, Any]:
+    def _derive_superset_agents_from_pattern(self, pattern_name: str, pattern_spec: GraphPattern) -> list[str]:
         """
-        Ensure ``exec_state["execution_config"]`` exists and is a dict.
+        Derive node set from the pattern spec (graph-patterns.json):
+          - entry_point
+          - edges[from/to]
+          - conditional_edges keys (from-nodes)
+          - conditional_destinations values (to-nodes)
+        Excludes END.
+        Returns deterministic ordering (preferred order first, then remaining sorted).
         """
-        ec = exec_state.get("execution_config")
-        if not isinstance(ec, dict):
-            self.logger.debug(
-                "execution_config missing or not dict; initializing new dict",
-                extra={"prev_type": type(ec).__name__ if ec is not None else None},
-            )
-            ec = {}
-            exec_state["execution_config"] = ec
-        else:
-            self.logger.debug(
-                "execution_config found",
-                extra={"keys": list(ec.keys())},
-            )
-            return ec
+        nodes: set[str] = set()
 
-        return ec
+        entry = getattr(pattern_spec, "entry_point", None)
+        if _is_node_name(entry):
+            nodes.add(_norm_node(entry))
 
-    def _apply_option_a_planning_bridge(self, cfg: GraphConfig) -> GraphConfig:
-        """
-        Option A planning bridge (GraphFactory-level).
+        edges = getattr(pattern_spec, "edges", None)
+        if edges is not None:
+            if not isinstance(edges, list):
+                raise GraphBuildError(f"pattern {pattern_name!r}: edges must be list")
+            for e in edges:
+                if not isinstance(e, dict):
+                    raise GraphBuildError(f"pattern {pattern_name!r}: edge entries must be dict")
+                fr = e.get("from")
+                to = e.get("to")
+                if _is_node_name(fr):
+                    nodes.add(_norm_node(str(fr)))
+                if _is_node_name(to):
+                    nodes.add(_norm_node(str(to)))
 
-        Decide between two high-level graph patterns:
+        cond_edges = getattr(pattern_spec, "conditional_edges", None)
+        if cond_edges is not None:
+            if not isinstance(cond_edges, dict):
+                raise GraphBuildError(f"pattern {pattern_name!r}: conditional_edges must be dict")
+            for k in cond_edges.keys():
+                if _is_node_name(k):
+                    nodes.add(_norm_node(str(k)))
 
-        * ``"standard"`` pattern (conversational)::
-
-              refiner -> final -> END
-
-        * ``"data_query"`` pattern (DB / action / query-oriented)::
-
-              refiner -> data_query -> (historian) -> END
-
-        Rules
-        -----
-
-        1. If the DBQueryRouter has explicitly routed to ``"data_query"``
-           (``route == "data_query"`` or locked ``route_key == "action"``):
-
-           * Use the ``"data_query"`` pattern.
-
-        2. Otherwise, if **all** of the following are true:
-
-           * classifier intent is not ``"action"``
-           * the original user text does **not** contain the words
-             ``"query"`` or ``"database"``
-           * there is no wizard state
-
-           then:
-
-           * Use the ``"standard"`` pattern.
-
-           Else:
-
-           * Use the ``"data_query"`` pattern.
-
-        Important
-        ---------
-
-        * Mutates ``exec_state["execution_config"]["graph_pattern"]``.
-        * Mutates ``exec_state["planned_agents"]``.
-        * Returns a new :class:`GraphConfig` with updated ``pattern_name`` and
-          ``agents_to_run``.
-
-        Args:
-            cfg: Current graph configuration to base planning on.
-
-        Returns:
-            A new :class:`GraphConfig` with the selected graph pattern and a
-            normalized ``agents_to_run`` list.
-        """
-        self.logger.info(
-            "[OptionA] Applying planning bridge",
-            extra={
-                "pattern_name_before": cfg.pattern_name,
-                "agents_before": cfg.agents_to_run,
-            },
-        )
-
-        exec_state = cfg.execution_state
-        if not isinstance(exec_state, dict):
-            self.logger.debug(
-                "[OptionA] execution_state missing or not dict; skipping planning bridge",
-                extra={
-                    "exec_state_type": type(exec_state).__name__
-                    if exec_state is not None
-                    else None,
-                },
-            )
-            return cfg
-
-        # Let the existing fast-path planner run for any side-effects you still want
-        chosen_target = cfg.chosen_target or exec_state.get("route")
-        if not isinstance(chosen_target, str):
-            chosen_target = ""
-        self.logger.debug(
-            "[OptionA] Running fastpath planning",
-            extra={"chosen_target": chosen_target or "refiner"},
-        )
-        apply_option_a_fastpath_planning(
-            exec_state=exec_state, chosen_target=chosen_target or "refiner"
-        )
-
-        ec = self._ensure_execution_config(exec_state)
-
-        # ------------------------------------------------------------------
-        # 1) Respect DBQueryRouter route if present
-        # ------------------------------------------------------------------
-        route = exec_state.get("route")
-        route_key_raw = exec_state.get("route_key", "")
-        route_key = str(route_key_raw).strip().lower() if route_key_raw is not None else ""
-        route_locked = bool(exec_state.get("route_locked"))
-        route_reason = exec_state.get("route_reason")
-
-        self.logger.info(
-            "[OptionA] Router state before pattern decision",
-            extra={
-                "route": route,
-                "route_key": route_key,
-                "route_locked": route_locked,
-                "route_reason": route_reason,
-            },
-        )
-
-        if route == "data_query" or (route_key == "action" and route_locked):
-            effective_pattern = "data_query"
-            self.logger.info(
-                "[OptionA] Forcing data_query pattern from DBQueryRouter",
-                extra={
-                    "effective_pattern": effective_pattern,
-                    "route": route,
-                    "route_key": route_key,
-                    "route_locked": route_locked,
-                    "route_reason": route_reason,
-                },
-            )
-        else:
-            # ------------------------------------------------------------------
-            # 2) Use classifier + lexical rule
-            # ------------------------------------------------------------------
-            task_cls = exec_state.get("task_classification") or {}
-            classifier_intent = (task_cls.get("intent") or "").strip().lower()
-
-            classifier_profile = exec_state.get("classifier_profile") or {}
-            original_text = (
-                    classifier_profile.get("original_text")
-                    or exec_state.get("query")
-                    or exec_state.get("user_query")
-                    or exec_state.get("raw_query")
-                    or exec_state.get("original_query")
-                    or ""
-            )
-            original_text_str = str(original_text)
-            original_lower = original_text_str.lower()
-
-            has_query_kw = "query" in original_lower
-            has_database_kw = "database" in original_lower
-
-            wizard_state = exec_state.get("wizard")
-            has_wizard = bool(wizard_state)
-
-            # Your rule:
-            # If intent != "action" AND no query/database AND no wizard -> standard
-            # Else -> data_query
-            if (
-                    classifier_intent != "action"
-                    and not has_query_kw
-                    and not has_database_kw
-                    and not has_wizard
-            ):
-                effective_pattern = "standard"
-            else:
-                effective_pattern = "data_query"
-
-            self.logger.info(
-                "[OptionA] Pattern decided from classifier/keywords",
-                extra={
-                    "effective_pattern": effective_pattern,
-                    "classifier_intent": classifier_intent,
-                    "raw_query_len": len(original_text_str),
-                    "raw_query_has_query": has_query_kw,
-                    "raw_query_has_database": has_database_kw,
-                    "has_wizard": has_wizard,
-                },
-            )
-
-        # Persist the pattern choice into execution_config
-        ec["graph_pattern"] = effective_pattern
-
-        # ------------------------------------------------------------------
-        # 3) Normalize planned_agents to match pattern
-        # ------------------------------------------------------------------
-        planned_from_state = exec_state.get("planned_agents")
-        if isinstance(planned_from_state, list) and planned_from_state:
-            # ✅ Respect precomputed planned_agents from execution_state as
-            #    authoritative about which nodes should exist. We only:
-            #      - lower-case
-            #      - drop duplicates
-            #      - strip prestep agents (e.g. 'classifier')
-            normalized: List[str] = []
-            seen: set[str] = set()
-            for a in planned_from_state:
-                if not a:
+        cond_dests = getattr(pattern_spec, "conditional_destinations", None)
+        if cond_dests is not None:
+            if not isinstance(cond_dests, dict):
+                raise GraphBuildError(f"pattern {pattern_name!r}: conditional_destinations must be dict")
+            for from_node, dest_map in cond_dests.items():
+                if dest_map is None:
                     continue
-                s = str(a).lower()
-                if s in self.PRESTEP_AGENTS:
-                    continue
-                if s not in seen:
-                    seen.add(s)
-                    normalized.append(s)
+                if not isinstance(dest_map, dict):
+                    raise GraphBuildError(
+                        f"pattern {pattern_name!r}: conditional_destinations[{from_node!r}] must be dict"
+                    )
+                for _route_key, to_node in dest_map.items():
+                    if _is_node_name(to_node):
+                        nodes.add(_norm_node(str(to_node)))
 
-            exec_state["planned_agents"] = normalized
+        if not nodes:
+            raise GraphBuildError(f"pattern {pattern_name!r}: derived superset node list is empty")
 
-            self.logger.info(
-                "[OptionA] Using existing planned_agents from execution_state",
-                extra={
-                    "effective_pattern": effective_pattern,
-                    "planned_agents": normalized,
-                },
-            )
+        ordered: list[str] = []
+        seen: set[str] = set()
 
-            # Keep cfg agents in sync but do NOT auto-inject 'refiner' here.
-            return replace(
-                cfg,
-                pattern_name=effective_pattern,
-                agents_to_run=normalized,
-            )
+        for a in self._PREFERRED_AGENT_ORDER:
+            if a in nodes and a not in seen:
+                seen.add(a)
+                ordered.append(a)
 
-        # No state-level plan yet: fall back to automatic planning from cfg.agents_to_run
-        base_planned = [str(a).lower() for a in (cfg.agents_to_run or []) if a]
-        normalized: List[str] = [a for a in base_planned if a]
-
-        # For auto-planned flows, still ensure refiner is present
-        if "refiner" not in normalized:
-            normalized.insert(0, "refiner")
-
-        if effective_pattern == "standard":
-            # refiner -> final -> END
-            normalized = [
-                a
-                for a in normalized
-                if a not in {"data_query", "historian", "critic", "synthesis"}
-            ]
-            if "final" not in normalized:
-                normalized.append("final")
-        else:
-            # data_query-style:
-            #   refiner -> data_query -> (historian) -> END
-            normalized = [
-                a for a in normalized if a not in {"final", "synthesis", "critic"}
-            ]
-            if "data_query" not in normalized:
-                normalized.append("data_query")
-
-        # Stable de-dupe
-        deduped: List[str] = []
-        seen = set()
-        for a in normalized:
+        for a in sorted(nodes):
             if a not in seen:
                 seen.add(a)
-                deduped.append(a)
+                ordered.append(a)
 
-        exec_state["planned_agents"] = deduped
+        return ordered
 
-        self.logger.info(
-            "[OptionA] Planned agents normalized",
-            extra={
-                "effective_pattern": effective_pattern,
-                "planned_agents": deduped,
-            },
-        )
-
-        # Override cfg with our effective pattern + planned agents
-        cfg = replace(
-            cfg,
-            pattern_name=effective_pattern,
-            agents_to_run=deduped,
-        )
-
-        self.logger.info(
-            "[OptionA] Planning bridge complete",
-            extra={
-                "pattern_name_after": cfg.pattern_name,
-                "agents_after": cfg.agents_to_run,
-            },
-        )
-        return cfg
-
-    # ------------------------------------------------------------------
-    # PUBLIC API
-    # ------------------------------------------------------------------
-
-    def create_graph(self, config: GraphConfig) -> Any:
-        self.logger.info(
-            "create_graph called",
-            extra={
-                "pattern_name_initial": config.pattern_name,
-                "agents_initial": config.agents_to_run,
-                "enable_checkpoints": config.enable_checkpoints,
-                "cache_enabled": config.cache_enabled,
-                "enable_validation": config.enable_validation,
-            },
-        )
-        try:
-            # 🔑 Option A order:
-            #   1) apply planning bridge (may change pattern + planned agents)
-            #   2) normalize agents for selected pattern (still enforces invariants)
-            config = self._apply_option_a_planning_bridge(config)
-            config = self.prepare_config(config)
-
-            graph_agents = list(config.agents_to_run or [])
-            self.logger.info(
-                "Graph config prepared",
-                extra={
-                    "pattern_name": config.pattern_name,
-                    "graph_agents": graph_agents,
-                },
-            )
-
-            pattern = self.pattern_registry.get(config.pattern_name)
-            if not pattern:
-                self.logger.error(
-                    "Unknown graph pattern",
-                    extra={"pattern_name": config.pattern_name},
-                )
-                raise GraphBuildError(f"Unknown graph pattern: {config.pattern_name}")
-
-            # Optional semantic validation BEFORE graph creation (preserved)
-            if config.enable_validation:
-                validator = config.validator or self.default_validator
-                if validator:
-                    self.logger.info(
-                        "Running workflow semantic validation",
-                        extra={
-                            "pattern_name": config.pattern_name,
-                            "graph_agents": graph_agents,
-                            "strict_mode": config.validation_strict_mode,
-                        },
-                    )
-                    result = validator.validate_workflow(
-                        agents=graph_agents,
-                        pattern=config.pattern_name,
-                        strict_mode=config.validation_strict_mode,
-                    )
-                    if result.has_errors:
-                        summary = "; ".join(result.error_messages)
-                        self.logger.error(
-                            "Workflow validation failed",
-                            extra={"errors": result.error_messages},
-                        )
-                        raise ValidationError(
-                            f"Workflow validation failed: {summary}", result
-                        )
-                else:
-                    self.logger.warning(
-                        "Validation enabled but no validator available",
-                    )
-
-            cache_version = self._cache_version(
-                config.pattern_name, graph_agents, config.enable_checkpoints
-            )
-
-            if config.cache_enabled:
-                self.logger.debug(
-                    "Checking graph cache",
-                    extra={
-                        "pattern_name": config.pattern_name,
-                        "agents": graph_agents,
-                        "cache_version": cache_version,
-                    },
-                )
-                cached = self.cache.get_cached_graph(
-                    pattern_name=config.pattern_name,
-                    agents=graph_agents,
-                    checkpoints_enabled=config.enable_checkpoints,
-                    version=cache_version,
-                )
-                if cached:
-                    self.logger.info(
-                        "Using cached compiled graph",
-                        extra={
-                            "pattern_name": config.pattern_name,
-                            "agents": graph_agents,
-                            "cache_version": cache_version,
-                        },
-                    )
-                    return cached
-
-            self.logger.info(
-                "Creating new StateGraph",
-                extra={
-                    "pattern_name": config.pattern_name,
-                    "agents": graph_agents,
-                },
-            )
-            graph = self._create_state_graph(config, pattern, graph_agents)
-            compiled = self._compile_graph(graph, config)
-
-            if config.cache_enabled:
-                self.logger.info(
-                    "Caching compiled graph",
-                    extra={
-                        "pattern_name": config.pattern_name,
-                        "agents": graph_agents,
-                        "cache_version": cache_version,
-                    },
-                )
-                self.cache.cache_graph(
-                    pattern_name=config.pattern_name,
-                    agents=graph_agents,
-                    checkpoints_enabled=config.enable_checkpoints,
-                    compiled_graph=compiled,
-                    version=cache_version,
-                )
-
-            self.logger.info(
-                "Graph compilation complete",
-                extra={
-                    "pattern_name": config.pattern_name,
-                    "agents": graph_agents,
-                },
-            )
-            return compiled
-
-        except ValidationError:
-            # Already logged above; just re-raise
-            raise
-        except Exception as e:
-            self.logger.exception(
-                "Failed to create graph",
-                extra={"error": str(e)},
-            )
-            raise GraphBuildError(f"Failed to create graph: {e}") from e
-
-    # ------------------------------------------------------------------
-    # NORMALIZATION (PATTERN-AWARE)
-    # ------------------------------------------------------------------
-
-    def _is_terminal_output_pattern(self, pattern_name: str) -> bool:
-        """
-        Patterns that are terminal conversational flows (end in a human-facing
-        output node like 'final').
-
-        For now:
-          - 'standard' is terminal-with-final
-          - 'data_query' is special-cased elsewhere (terminal but no final)
-        """
-        value = pattern_name.lower() in {"standard"}
-        self.logger.debug(
-            "_is_terminal_output_pattern evaluated",
-            extra={"pattern_name": pattern_name, "is_terminal": value},
-        )
-        return value
-
-    def _normalize_agents_for_pattern(
-        self, agents: Iterable[str], pattern_name: str
-    ) -> List[str]:
-        self.logger.debug(
-            "Normalizing agents for pattern",
-            extra={
-                "pattern_name": pattern_name,
-                "agents_raw": list(agents or []),
-            },
-        )
-
-        a = [str(x).lower() for x in (agents or []) if x]
-        # Strip prestep agents (classifier is handled elsewhere)
-        a = [x for x in a if x not in self.PRESTEP_AGENTS]
-
-        # Always ensure refiner first
-        if "refiner" not in a:
-            a.insert(0, "refiner")
-
-        pattern_lower = pattern_name.lower()
-
-        if pattern_lower == "standard":
-            # Standard conversational path:
-            #   refiner -> final -> END
-            # Ensure final, no synthesis, and no data_query/historian/critic by default.
-            a = [x for x in a if x not in {"synthesis", "data_query", "historian", "critic"}]
-            if "final" not in a:
-                a.append("final")
-
-        elif pattern_lower == "data_query":
-            # Data-centric path:
-            #   refiner -> data_query -> (historian for CRUD) -> END
-            #
-            # - MUST have data_query
-            # - MUST NOT have final or synthesis or critic
-            # - historian is allowed but optional (for CRUD history)
-            a = [x for x in a if x not in {"final", "synthesis", "critic"}]
-            if "data_query" not in a:
-                a.append("data_query")
-            # historian: kept if present, not auto-added here
-
-        else:
-            # Fallback for any future patterns:
-            # Use the old terminal vs non-terminal rule.
-            terminal = self._is_terminal_output_pattern(pattern_name) or ("final" in a)
-
-            if terminal:
-                # Terminal flows MUST end with output and MUST NOT include synthesis
-                a = [x for x in a if x != "synthesis"]
-                if "final" not in a:
-                    a.append("final")
-            else:
-                # Normal flows MUST end with synthesis and MUST NOT include output
-                a = [x for x in a if x != "final"]
-                if "synthesis" not in a:
-                    a.append("synthesis")
-
-        # Stable de-dupe preserving order
-        out: List[str] = []
-        seen = set()
-        for x in a:
-            if x not in seen:
-                seen.add(x)
-                out.append(x)
-
-        self.logger.debug(
-            "Agents normalized for pattern",
-            extra={
-                "pattern_name": pattern_name,
-                "agents_normalized": out,
-            },
-        )
-        return out
-
-    def prepare_config(self, cfg: GraphConfig) -> GraphConfig:
-        self.logger.debug(
-            "Preparing GraphConfig via normalization",
-            extra={
-                "pattern_name": cfg.pattern_name,
-                "agents_before": cfg.agents_to_run,
-            },
-        )
-
-        exec_state = cfg.execution_state if isinstance(cfg.execution_state, dict) else None
-
-        # ✅ If execution_state already has planned_agents, trust that as the
-        #    final node set for this compiled graph. Do NOT auto-add refiner.
-        if isinstance(exec_state, dict):
-            pa = exec_state.get("planned_agents")
-            if isinstance(pa, list) and pa:
-                deduped: List[str] = []
-                seen: set[str] = set()
-                for a in pa:
-                    if not a:
-                        continue
-                    s = str(a).lower()
-                    # Strip prestep agents like 'classifier'
-                    if s in self.PRESTEP_AGENTS:
-                        continue
-                    if s not in seen:
-                        seen.add(s)
-                        deduped.append(s)
-
-                self.logger.info(
-                    "prepare_config: using planned_agents from execution_state",
-                    extra={
-                        "pattern_name": cfg.pattern_name,
-                        "planned_agents": deduped,
-                    },
-                )
-
-                if deduped == list(cfg.agents_to_run or []):
-                    self.logger.debug(
-                        "GraphConfig agents unchanged after planned_agents normalization",
-                        extra={"agents": deduped},
-                    )
-                    return cfg
-
-                return replace(cfg, agents_to_run=deduped)
-
-        # Otherwise fall back to pattern-aware normalization (old behavior)
-        deduped = self._normalize_agents_for_pattern(
-            cfg.agents_to_run, cfg.pattern_name
-        )
-
-        if deduped == list(cfg.agents_to_run or []):
-            self.logger.debug(
-                "GraphConfig agents unchanged after normalization",
-                extra={"agents": deduped},
-            )
-            return cfg
-
-        self.logger.info(
-            "GraphConfig agents updated after normalization",
-            extra={
-                "pattern_name": cfg.pattern_name,
-                "agents_before": cfg.agents_to_run,
-                "agents_after": deduped,
-            },
-        )
-        return replace(cfg, agents_to_run=deduped)
-
-    # ------------------------------------------------------------------
-    # GRAPH BUILDING
-    # ------------------------------------------------------------------
-
-    def _create_state_graph(
+    def _create_graph_from_resolved(
         self,
-        config: GraphConfig,
-        pattern: GraphPattern,
-        graph_agents: List[str],
+        cfg: GraphConfig,
+        *,
+        resolved_pattern: str,
+        resolved_agents: list[str],
+        pattern_spec: GraphPattern,
     ) -> Any:
-        """
-        Build the underlying LangGraph StateGraph.
-
-        IMPORTANT:
-        - graph_agents is already the authoritative node set (Option A)
-        """
         self.logger.info(
-            "Creating new StateGraph",
+            "Graph compile inputs (Option A)",
             extra={
-                "pattern_name": config.pattern_name,
-                "agents": graph_agents,
+                "pattern_name": resolved_pattern,
+                "agents": resolved_agents,
+                "compile_variant": cfg.compile_variant,
             },
         )
 
-        graph = StateGraph[OSSSState](state_schema=OSSSState, context_schema=OSSSContext)
-
-        self.logger.info(
-            "Creating StateGraph structure",
-            extra={
-                "pattern_name": config.pattern_name,
-                "agents": graph_agents,
-            },
-        )
-
-        # ---- Nodes ----------------------------------------------------
-        self._add_nodes(graph, graph_agents)
-
-        entry = pattern.get_entry_point(graph_agents) or graph_agents[0]
-        self.logger.info(
-            "Setting graph entry point",
-            extra={"entry_point": entry},
-        )
-        graph.set_entry_point(entry)
-
-        # ---- Conditional edges (if any) ------------------------------
-        if getattr(pattern, "has_conditional", None) and pattern.has_conditional():
-            self.logger.info(
-                "Adding conditional edges via router registry",
-                extra={
-                    "pattern_name": config.pattern_name,
-                    "agents": graph_agents,
-                },
-            )
-            self._add_conditional_edges(graph, pattern, graph_agents)
-
-        # ---- Base edges from pattern ---------------------------------
-        edges: List[Dict[str, str]] = pattern.resolve_edges(graph_agents) or []
-        self.logger.info(
-            "Pattern resolved edges",
-            extra={
-                "pattern_name": config.pattern_name,
-                "raw_edges": edges,
-            },
-        )
-
-        # NOTE: the old refiner_final + data_query edge rewrite is no longer
-        # needed now that patterns.json only defines 'standard' and 'data_query'.
-
-        # ---- Validate & register edges -------------------------------
-        self._assert_edges_valid(edges, graph_agents, config.pattern_name)
-
-        for e in edges:
-            frm = e["from"]
-            to = e["to"]
-            dest = END if str(to).lower() == "end" else to
-            self.logger.info(
-                "Adding edge to graph",
-                extra={"from": frm, "to": to},
-            )
-            graph.add_edge(frm, dest)
-
-        self.logger.info(
-            "StateGraph structure created",
-            extra={
-                "pattern_name": config.pattern_name,
-                "agents": graph_agents,
-            },
-        )
-
-        return graph
-
-    def _add_nodes(self, graph: Any, agents_to_run: List[str]) -> None:
-        self.logger.info(
-            "Adding nodes to graph",
-            extra={"agents_to_run": agents_to_run},
-        )
-        for name in agents_to_run:
-            key = str(name).lower()
-            if key not in self.node_functions:
-                self.logger.error(
-                    "Unknown agent when adding nodes",
-                    extra={"agent": name},
+        if cfg.enable_validation:
+            v = cfg.validator or self.default_validator
+            if v:
+                result = v.validate_workflow(
+                    agents=resolved_agents,
+                    pattern=resolved_pattern,
+                    strict_mode=cfg.validation_strict_mode,
                 )
-                raise GraphBuildError(f"Unknown agent: {name}")
-            self.logger.debug(
-                "Adding node",
-                extra={"agent": key},
-            )
-            graph.add_node(key, self.node_functions[key])
-
-    def _add_conditional_edges(
-        self, graph: Any, pattern: GraphPattern, agents: List[str]
-    ) -> None:
-        """
-        Minimal conditional edge wiring using router registry + pattern mappings.
-        Safe no-op if pattern doesn't define conditional_edges.
-        """
-        self.logger.info(
-            "Adding conditional edges",
-            extra={"agents": agents},
-        )
-        agents_set = {a.lower() for a in agents}
-        conditional = getattr(pattern, "conditional_edges", None) or {}
-
-        for from_node, router_name in conditional.items():
-            from_node = (from_node or "").lower()
-            if from_node not in agents_set:
-                self.logger.debug(
-                    "Skipping conditional edge for node not in agents",
-                    extra={"from_node": from_node},
-                )
-                continue
-
-            router_fn = self.routers.get(router_name)
-
-            # Default mapping: END is always allowed
-            dest_map: Dict[str, Any] = {"END": END}
-
-            # If pattern exposes destination mappings, respect them
-            get_dests = getattr(pattern, "get_conditional_destinations_for", None)
-            if callable(get_dests):
-                for k, dest in (get_dests(from_node) or {}).items():
-                    if not k:
-                        continue
-                    if isinstance(dest, str) and dest.lower() == "end":
-                        dest_map[str(k)] = END
-                        continue
-                    d = str(dest).lower()
-                    if d in agents_set:
-                        dest_map[str(k)] = d
-
-            self.logger.debug(
-                "Registering conditional edges",
-                extra={
-                    "from_node": from_node,
-                    "router": router_name,
-                    "destinations": list(dest_map.keys()),
-                },
-            )
-            graph.add_conditional_edges(from_node, router_fn, dest_map)
-
-    def _compile_graph(self, graph: StateGraph[OSSSState], config: GraphConfig) -> Any:
-        self.logger.info(
-            "Compiling graph",
-            extra={
-                "enable_checkpoints": config.enable_checkpoints,
-                "has_memory_manager": bool(config.memory_manager),
-            },
-        )
-        if config.enable_checkpoints and config.memory_manager:
-            saver = config.memory_manager.get_memory_saver()
-            if saver:
-                self.logger.debug("Compiling graph with checkpointer")
-                return graph.compile(checkpointer=saver)
+                if result.has_errors:
+                    summary = "; ".join(result.error_messages)
+                    raise ValidationError(f"Workflow validation failed: {summary}", result)
             else:
-                self.logger.warning(
-                    "Checkpoints enabled but memory_saver is None; compiling without checkpointer"
+                self.logger.warning("Validation enabled but no validator available")
+
+        # ✅ Optional: validate required routers before wiring
+        required = set()
+        try:
+            required = pattern_spec.required_router_names(resolved_agents)
+        except Exception:
+            required = set()
+
+        if required:
+            missing = sorted(r for r in required if not self.routers.has(r))
+            if missing:
+                raise GraphBuildError(
+                    f"Pattern {resolved_pattern!r} requires router(s) not registered: {missing}. "
+                    f"Registered: {self.routers.list_names()}"
                 )
-        self.logger.debug("Compiling graph without checkpointer")
+
+        cache_version = self._cache_version(
+            resolved_pattern,
+            resolved_agents,
+            cfg.enable_checkpoints,
+            compile_variant=cfg.compile_variant,
+        )
+
+        if cfg.cache_enabled:
+            cached = self.cache.get_cached_graph(
+                pattern_name=resolved_pattern,
+                agents=resolved_agents,
+                checkpoints_enabled=cfg.enable_checkpoints,
+                version=cache_version,
+            )
+            if cached is not None:
+                self.logger.info(
+                    "Using cached compiled graph",
+                    extra={
+                        "pattern_name": resolved_pattern,
+                        "agents": resolved_agents,
+                        "compile_variant": cfg.compile_variant,
+                        "cache_version": cache_version,
+                    },
+                )
+                return cached
+
+        inp = AssembleInput(
+            pattern_name=resolved_pattern,
+            agents=resolved_agents,
+            execution_state=cfg.execution_state if isinstance(cfg.execution_state, dict) else None,
+        )
+
+        graph = self.assembler.assemble(pattern_spec, inp)
+        compiled = self._compile_graph(graph, cfg)
+
+        if cfg.cache_enabled:
+            self.cache.cache_graph(
+                pattern_name=resolved_pattern,
+                agents=resolved_agents,
+                checkpoints_enabled=cfg.enable_checkpoints,
+                compiled_graph=compiled,
+                version=cache_version,
+            )
+
+        return compiled
+
+    def _compile_graph(self, graph: Any, cfg: GraphConfig) -> Any:
+        if cfg.enable_checkpoints and cfg.memory_manager:
+            saver = cfg.memory_manager.get_memory_saver()
+            if saver:
+                return graph.compile(checkpointer=saver)
         return graph.compile()
 
-    # ------------------------------------------------------------------
-    # CACHE / VALIDATION HELPERS
-    # ------------------------------------------------------------------
-
     def _cache_version(
-        self, pattern_name: str, agents: List[str], checkpoints_enabled: bool
+        self,
+        pattern_name: str,
+        agents: List[str],
+        checkpoints_enabled: bool,
+        *,
+        compile_variant: str,
     ) -> str:
-        fp = self._patterns_fingerprint()
+        fp = self.pattern_service.fingerprint()
         ck = "ckpt1" if checkpoints_enabled else "ckpt0"
         agents_key = ",".join([a.lower() for a in agents])
-        version = f"{pattern_name}:{agents_key}:{ck}:patterns:{fp}"
-        self.logger.debug(
-            "Computed cache version",
-            extra={
-                "pattern_name": pattern_name,
-                "agents": agents,
-                "checkpoints_enabled": checkpoints_enabled,
-                "version": version,
-            },
-        )
-        return version
-
-    def _assert_edges_valid(
-        self, edges: List[Dict[str, str]], agents: List[str], pattern_name: str
-    ) -> None:
-        self.logger.debug(
-            "Validating edges against agents",
-            extra={
-                "pattern_name": pattern_name,
-                "edges_count": len(edges),
-                "agents": agents,
-            },
-        )
-        agents_set = {a.lower() for a in agents}
-        for e in edges:
-            frm = str(e.get("from", "")).lower()
-            to = str(e.get("to", "")).lower()
-            if not frm or not to:
-                self.logger.debug(
-                    "Skipping edge with missing from/to",
-                    extra={"edge": e},
-                )
-                continue
-            if frm != "end" and frm not in agents_set:
-                self.logger.error(
-                    "Invalid edge: from-node not in agents",
-                    extra={"from": frm, "pattern_name": pattern_name},
-                )
-                raise GraphBuildError(f"Invalid edge from {frm} in {pattern_name}")
-            if to != "end" and to not in agents_set:
-                self.logger.error(
-                    "Invalid edge: to-node not in agents",
-                    extra={"to": to, "pattern_name": pattern_name},
-                )
-                raise GraphBuildError(f"Invalid edge to {to} in {pattern_name}")
-
-    # ------------------------------------------------------------------
-    # AGENT VALIDATION UTILITY
-    # ------------------------------------------------------------------
-
-    def validate_agents(self, agents: List[str]) -> bool:
-        self.logger.info(
-            "Validating requested agents",
-            extra={"requested_agents": agents},
-        )
-        available = set(self.node_functions.keys())
-        graph_agents = self._normalize_agents_for_pattern(
-            agents, pattern_name="standard"
-        )
-        missing = set(graph_agents) - available
-        if missing:
-            self.logger.error(
-                "Missing agents detected during validation",
-                extra={"missing_agents": list(missing)},
-            )
-            return False
-        self.logger.info(
-            "Agents validated successfully",
-            extra={"normalized_agents": graph_agents},
-        )
-        return True
+        variant = (compile_variant or "default").strip().lower()
+        return f"{pattern_name}:{variant}:{agents_key}:{ck}:patterns:{fp}"

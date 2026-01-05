@@ -1,11 +1,15 @@
 """
 Graph pattern specification and resolution layer.
 
+Option A alignment (planning before compile; planned_agents authoritative):
+
 This module:
 - Loads graph patterns from JSON
-- Resolves conditional + static edges
-- Enforces structural invariants (no early synthesis)
+- Resolves static edges *only among the provided agent set*
+- Resolves conditional destination maps *only among the provided agent set*
+- Evaluates optional `when` expressions safely
 - Does NOT build LangGraph graphs directly
+- Does NOT register or resolve router callables (router names only)
 
 GraphFactory is the only place that mutates StateGraph.
 """
@@ -13,16 +17,17 @@ GraphFactory is the only place that mutates StateGraph.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 import json
 import pathlib
-import logging  # <-- added
+import logging
+from collections import OrderedDict  # ✅ Option A: deterministic tiny cache eviction
 
 # ---------------------------------------------------------------------------
 # Logger
 # ---------------------------------------------------------------------------
 
-logger = logging.getLogger("OSSS.ai.orchestration.graph_patterns")  # <-- added
+logger = logging.getLogger("OSSS.ai.orchestration.graph_patterns")
 
 # ---------------------------------------------------------------------------
 # Types
@@ -30,6 +35,9 @@ logger = logging.getLogger("OSSS.ai.orchestration.graph_patterns")  # <-- added
 
 Edge = Dict[str, str]
 WhenExpr = str
+
+# Router names are strings in the JSON spec. The runtime router registry
+# lives in OSSS.ai.orchestration.routers.registry and is owned by GraphFactory.
 RouterName = str
 
 # conditional_destinations[from_node][router_output_key] = destination_node_or_END
@@ -53,7 +61,8 @@ class _Tok:
 # Tiny cache: expr -> token list
 # (tokenization is the expensive part; parsing is cheap and depends on `agents`)
 _MAX_WHEN_CACHE = 256
-_WHEN_TOK_CACHE: Dict[str, List[_Tok]] = {}
+# ✅ FIX: dict.popitem() has no `last=`; use OrderedDict so we can evict oldest
+_WHEN_TOK_CACHE: "OrderedDict[str, List[_Tok]]" = OrderedDict()
 
 
 def evaluate_when_expr(expr: str, agents: set[str]) -> bool:
@@ -70,16 +79,16 @@ def evaluate_when_expr(expr: str, agents: set[str]) -> bool:
     Precedence:
       not > and > or
     """
-    expr_orig = expr  # <-- added (for logging)
+    expr_orig = expr
     expr = (expr or "").strip()
     if not expr:
-        logger.debug(  # <-- added
+        logger.debug(
             "[when] empty or missing expression treated as True",
             extra={"expr": expr_orig, "agents": sorted(agents)},
         )
         return True
 
-    try:  # <-- added
+    try:
         toks = _get_or_tokenize_when(expr)
         parser = _WhenParser(toks, agents)
         result = parser.parse_expr()
@@ -88,17 +97,17 @@ def evaluate_when_expr(expr: str, agents: set[str]) -> bool:
         if parser.peek().kind != "EOF":
             raise WhenExprError(f"Unexpected token after expression: {parser.peek().kind}")
 
-        logger.debug(  # <-- added
+        logger.debug(
             "[when] evaluated expression",
             extra={"expr": expr_orig, "agents": sorted(agents), "result": result},
         )
         return result
-    except WhenExprError as e:  # <-- added
+    except WhenExprError as e:
         logger.warning(
             "[when] error evaluating expression; defaulting to False",
             extra={"expr": expr_orig, "agents": sorted(agents), "error": str(e)},
         )
-        return False  # conservative when expression is malformed
+        return False  # conservative if expression malformed
 
 
 def _get_or_tokenize_when(expr: str) -> List[_Tok]:
@@ -108,20 +117,22 @@ def _get_or_tokenize_when(expr: str) -> List[_Tok]:
     """
     cached = _WHEN_TOK_CACHE.get(expr)
     if cached is not None:
+        # Touch for LRU-ish behavior
+        _WHEN_TOK_CACHE.move_to_end(expr, last=True)
         return cached
 
     toks = _tokenize_when(expr)
 
-    # tiny bounded cache (cheap eviction)
+    # tiny bounded cache eviction
     if len(_WHEN_TOK_CACHE) >= _MAX_WHEN_CACHE:
-        # pop an arbitrary (oldest insertion order is preserved in Py3.7+ dicts)
-        popped_key, _ = _WHEN_TOK_CACHE.popitem(last=False) if hasattr(_WHEN_TOK_CACHE, "popitem") else (_WHEN_TOK_CACHE.pop(next(iter(_WHEN_TOK_CACHE))), None)  # type: ignore[assignment]  # <-- added (defensive)
-        logger.debug(  # <-- added
+        evicted_expr, _ = _WHEN_TOK_CACHE.popitem(last=False)
+        logger.debug(
             "[when] evicted expression from token cache",
-            extra={"evicted_expr": popped_key, "cache_size": len(_WHEN_TOK_CACHE)},
+            extra={"evicted_expr": evicted_expr, "cache_size": len(_WHEN_TOK_CACHE)},
         )
+
     _WHEN_TOK_CACHE[expr] = toks
-    logger.debug(  # <-- added
+    logger.debug(
         "[when] tokenized new expression",
         extra={"expr": expr, "token_count": len(toks)},
     )
@@ -151,8 +162,7 @@ def _tokenize_when(s: str) -> List[_Tok]:
     def parse_has() -> _Tok:
         # expecting: has('name') or has("name")
         nonlocal i
-        # consume "has"
-        i += 3
+        i += 3  # consume "has"
         skip_ws()
         if i >= n or s[i] != "(":
             raise WhenExprError("Expected '(' after has")
@@ -294,16 +304,9 @@ class GraphPattern:
     """
     Declarative description of a graph pattern.
 
-    A pattern contains:
-    - entry_point
-    - static edges
-    - optional conditional routers (by name)
-    - optional conditional destination maps (router outputs -> destinations)
-
-    NOTE:
-      conditional_edges defines "where the fork happens"
-      edges defines "everything else"
-      conditional_destinations defines "router return keys -> where they go"
+    Option A: This layer must be *agent-set strict*.
+    - If planned_agents does not include a node, edges and destinations
+      referencing that node are considered inactive / unavailable.
     """
 
     name: str
@@ -314,10 +317,15 @@ class GraphPattern:
     conditional_destinations: ConditionalDestinations
 
     def resolve_edges(self, agents: Iterable[str]) -> List[Edge]:
+        """
+        Option A behavior:
+        - Only include edges whose endpoints exist in `agents` (except END).
+        - Apply `when` expressions against the provided agent set.
+        """
         agent_set = {a.lower() for a in agents}
         resolved: List[Edge] = []
 
-        logger.info(  # <-- added
+        logger.info(
             "[pattern] resolve_edges start",
             extra={
                 "pattern_name": self.name,
@@ -334,142 +342,128 @@ class GraphPattern:
             to = str(raw_to).lower()
 
             if not frm or not to:
-                logger.debug(  # <-- added
+                logger.debug(
                     "[pattern] skipping edge with missing from/to",
                     extra={"pattern_name": self.name, "edge": edge},
                 )
                 continue
 
-            # enforce "nodes must exist" (END is allowed)
+            # nodes must exist (END is allowed)
             if frm != "end" and frm not in agent_set:
-                logger.debug(  # <-- added
+                logger.debug(
                     "[pattern] skipping edge: from_node not in agent_set",
-                    extra={
-                        "pattern_name": self.name,
-                        "edge": edge,
-                        "agent_set": sorted(agent_set),
-                    },
+                    extra={"pattern_name": self.name, "edge": edge},
                 )
                 continue
             if to != "end" and to not in agent_set:
-                logger.debug(  # <-- added
+                logger.debug(
                     "[pattern] skipping edge: to_node not in agent_set",
-                    extra={
-                        "pattern_name": self.name,
-                        "edge": edge,
-                        "agent_set": sorted(agent_set),
-                    },
+                    extra={"pattern_name": self.name, "edge": edge},
                 )
                 continue
 
             if not self._edge_is_active(edge, agent_set):
-                logger.debug(  # <-- added
+                logger.debug(
                     "[pattern] skipping edge: when-expression evaluated to False",
                     extra={"pattern_name": self.name, "edge": edge},
                 )
                 continue
 
-            logger.debug(  # <-- added
-                "[pattern] including edge",
-                extra={"pattern_name": self.name, "from": frm, "to": to, "edge": edge},
-            )
             resolved.append({"from": frm, "to": to})
 
         self._validate_no_early_synthesis(resolved, agent_set)
 
-        logger.info(  # <-- added
+        logger.info(
             "[pattern] resolve_edges completed",
             extra={
                 "pattern_name": self.name,
                 "resolved_edge_count": len(resolved),
                 "resolved_edges": resolved,
-                "agent_set": sorted(agent_set),
             },
         )
-
         return resolved
+
+    def resolve_conditional_destinations_for(self, from_node: str, agents: Iterable[str]) -> Dict[str, str]:
+        """
+        ✅ Option A helper:
+        Returns the conditional destination mapping *filtered* to the provided agent set.
+
+        - Always preserves router keys whose destination is END
+        - Drops destinations that are not present in `agents` (planned_agents)
+        """
+        agent_set = {a.lower() for a in agents}
+        raw = self.get_conditional_destinations_for(from_node) or {}
+
+        filtered: Dict[str, str] = {}
+        for out_key, dest in raw.items():
+            if not out_key:
+                continue
+            d = str(dest or "")
+            if not d:
+                continue
+            d_lower = d.lower()
+            if d_lower == "end":
+                filtered[str(out_key)] = "END"
+                continue
+            if d_lower in agent_set:
+                filtered[str(out_key)] = d_lower
+
+        logger.debug(
+            "[pattern] resolve_conditional_destinations_for (filtered)",
+            extra={
+                "pattern_name": self.name,
+                "from_node": (from_node or "").lower(),
+                "agent_set": sorted(agent_set),
+                "raw": raw,
+                "filtered": filtered,
+            },
+        )
+        return filtered
 
     def _edge_is_active(self, edge: Edge, agents: set[str]) -> bool:
         when: Optional[WhenExpr] = edge.get("when")
         if not when:
             return True
-        active = evaluate_when_expr(when, agents)
-        logger.debug(  # <-- added
-            "[pattern] evaluated edge 'when' expression",
-            extra={
-                "pattern_name": self.name,
-                "edge": edge,
-                "agents": sorted(agents),
-                "active": active,
-            },
-        )
-        return active
+        return evaluate_when_expr(when, agents)
 
     def _validate_no_early_synthesis(self, edges: List[Edge], agents: set[str]) -> None:
         if "data_query" not in agents or "synthesis" not in agents:
             return
-
         for e in edges:
             if e["to"] == "synthesis" and e["from"] == "refiner":
-                logger.error(  # <-- added
-                    "[pattern] invalid refiner→synthesis edge while data_query present",
-                    extra={
-                        "pattern_name": self.name,
-                        "edge": e,
-                        "agents": sorted(agents),
-                    },
-                )
                 raise ValueError(
-                    f"[pattern:{self.name}] invalid edge refiner→synthesis "
-                    f"while data_query is present"
+                    f"[pattern:{self.name}] invalid edge refiner→synthesis while data_query is present"
                 )
 
     def has_conditional(self) -> bool:
-        has_cond = bool(self.conditional_edges)
-        logger.debug(  # <-- added
-            "[pattern] has_conditional check",
-            extra={"pattern_name": self.name, "has_conditional": has_cond},
-        )
-        return has_cond
+        return bool(self.conditional_edges)
 
     def get_entry_point(self, agents: Iterable[str]) -> Optional[str]:
         if not self.entry_point:
-            logger.debug(  # <-- added
-                "[pattern] get_entry_point: no entry_point configured",
-                extra={"pattern_name": self.name},
-            )
             return None
         ep = self.entry_point.lower()
         agent_set = {a.lower() for a in agents}
-        if ep in agent_set:
-            logger.info(  # <-- added
-                "[pattern] resolved entry point",
-                extra={"pattern_name": self.name, "entry_point": ep},
-            )
-            return ep
-        logger.warning(  # <-- added
-            "[pattern] entry point not in agent_set",
-            extra={
-                "pattern_name": self.name,
-                "configured_entry_point": ep,
-                "agent_set": sorted(agent_set),
-            },
-        )
-        return None
+        return ep if ep in agent_set else None
 
     def get_conditional_destinations_for(self, from_node: str) -> Dict[str, str]:
         from_key = (from_node or "").lower()
-        dest = self.conditional_destinations.get(from_key, {})
-        logger.debug(  # <-- added
-            "[pattern] get_conditional_destinations_for",
-            extra={
-                "pattern_name": self.name,
-                "from_node": from_node,
-                "resolved_key": from_key,
-                "destinations": dest,
-            },
-        )
-        return dest
+        return self.conditional_destinations.get(from_key, {})
+
+    def required_router_names(self, agents: Iterable[str]) -> set[str]:
+        """
+        Return router names referenced by this pattern that are *active* for the provided agent set.
+        This is used by GraphFactory/GraphAssembler to validate router registration before wiring.
+        """
+        agent_set = {a.lower() for a in agents}
+        out: set[str] = set()
+        for from_node, router_name in (self.conditional_edges or {}).items():
+            frm = (from_node or "").strip().lower()
+            if not frm or frm not in agent_set:
+                continue
+            rn = str(router_name or "").strip()
+            if rn:
+                out.add(rn)
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -487,11 +481,8 @@ class PatternRegistry:
             self.load_from_file(pattern_file)
 
     def load_from_file(self, path: str) -> None:
-        path_obj = pathlib.Path(path)  # <-- changed variable name
-        logger.info(  # <-- added
-            "[patterns] loading graph patterns from file",
-            extra={"path": str(path_obj)},
-        )
+        path_obj = pathlib.Path(path)
+        logger.info("[patterns] loading graph patterns from file", extra={"path": str(path_obj)})
 
         with path_obj.open("r", encoding="utf-8") as f:
             raw = json.load(f)
@@ -499,25 +490,25 @@ class PatternRegistry:
         patterns = raw.get("patterns", {}) or {}
         for name, spec in patterns.items():
             gp = self._parse_pattern(str(name), spec or {})
-            self._patterns[str(name)] = gp
+            self._patterns[str(name).lower()] = gp  # ✅ normalize keys for safety
 
-        logger.info(  # <-- added
+        logger.info(
             "[patterns] loaded graph patterns",
-            extra={
-                "path": str(path_obj),
-                "pattern_names": sorted(self._patterns.keys()),
-                "standard_edges_preview": [
-                    e for e in self._patterns.get("standard", GraphPattern("standard", "", None, [], {}, {})).edges
-                ][:5]
-                if "standard" in self._patterns
-                else None,
-            },
+            extra={"path": str(path_obj), "pattern_names": sorted(self._patterns.keys())},
         )
 
     def _parse_pattern(self, name: str, spec: Dict[str, Any]) -> GraphPattern:
+        # ✅ normalize conditional_edges keys to lower-case so lookups are stable
+        raw_ce = spec.get("conditional_edges", {}) or {}
+        ce: Dict[str, RouterName] = {}
+        if isinstance(raw_ce, dict):
+            for from_node, router in raw_ce.items():
+                if not from_node or not router:
+                    continue
+                ce[str(from_node).lower()] = str(router)
+
         raw_cd = spec.get("conditional_destinations", {}) or {}
         cd: ConditionalDestinations = {}
-
         if isinstance(raw_cd, dict):
             for from_node, mapping in raw_cd.items():
                 if not from_node or not isinstance(mapping, dict):
@@ -529,83 +520,17 @@ class PatternRegistry:
                         continue
                     cd[from_key][str(out_key)] = str(dest)
 
-        pattern = GraphPattern(
-            name=name,
+        return GraphPattern(
+            name=str(name).lower(),
             description=str(spec.get("description", "") or ""),
             entry_point=spec.get("entry_point"),
             edges=spec.get("edges", []) or [],
-            conditional_edges=spec.get("conditional_edges", {}) or {},
+            conditional_edges=ce,
             conditional_destinations=cd,
         )
 
-        logger.debug(  # <-- added
-            "[patterns] parsed pattern",
-            extra={
-                "pattern_name": name,
-                "description": pattern.description,
-                "entry_point": pattern.entry_point,
-                "edge_count": len(pattern.edges),
-                "conditional_edges_keys": list(pattern.conditional_edges.keys()),
-                "conditional_destinations_keys": list(pattern.conditional_destinations.keys()),
-            },
-        )
-
-        return pattern
-
     def get(self, name: str) -> Optional[GraphPattern]:
-        gp = self._patterns.get(name)
-        logger.info(  # <-- added
-            "[patterns] get pattern",
-            extra={
-                "requested_name": name,
-                "found": gp is not None,
-                "available_patterns": sorted(self._patterns.keys()),
-            },
-        )
-        return gp
+        return self._patterns.get(str(name).lower())
 
     def list_names(self) -> List[str]:
-        names = sorted(self._patterns.keys())
-        logger.debug(  # <-- added
-            "[patterns] list_names",
-            extra={"pattern_names": names},
-        )
-        return names
-
-
-# ---------------------------------------------------------------------------
-# Router registry (name → callable)
-# ---------------------------------------------------------------------------
-
-RouterFn = Callable[[Any], str]
-
-
-class RouterRegistry:
-    """
-    Maps router names to callables.
-
-    Used only by GraphFactory during conditional wiring.
-    """
-
-    def __init__(self) -> None:
-        self._routers: Dict[str, RouterFn] = {}
-
-    def register(self, name: str, fn: RouterFn) -> None:
-        logger.info(  # <-- added
-            "[routers] register router",
-            extra={"name": name, "fn_repr": repr(fn)},
-        )
-        self._routers[name] = fn
-
-    def get(self, name: str) -> RouterFn:
-        if name not in self._routers:
-            logger.error(  # <-- added
-                "[routers] unknown router requested",
-                extra={"name": name, "known_routers": list(self._routers.keys())},
-            )
-            raise KeyError(f"Unknown router: {name}")
-        logger.debug(  # <-- added
-            "[routers] get router",
-            extra={"name": name},
-        )
-        return self._routers[name]
+        return sorted(self._patterns.keys())
