@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 from langgraph.graph import StateGraph, END
 
@@ -40,6 +40,13 @@ class GraphAssembler:
       - If a node is requested but not registered -> fail fast
       - If an edge references an unknown node -> fail fast
       - If a pattern requires a router not registered -> fail fast
+
+    Best-practice hardening (NEW):
+      - Conditional routers are wrapped so that:
+          * router exceptions never crash the graph (fallback branch)
+          * non-str router outputs are clamped
+          * invalid branch keys are clamped to a deterministic fallback
+        This prevents “turn 2” / resume flows from being derailed by runtime router issues.
     """
 
     def __init__(self, *, nodes: NodeRegistry, routers: RouterRegistry) -> None:
@@ -66,19 +73,15 @@ class GraphAssembler:
         for name in agents:
             graph.add_node(name, self.nodes.get(name))
 
-        # ---- Entry point (pattern default, but allow execution_state override)
+        # ---- Entry point
+        # Fix 2: GraphFactory may have overridden pattern.entry_point per-run.
         entry = pattern.get_entry_point(agents) or agents[0]
+        entry = str(entry).strip().lower()
 
-        exec_state = inp.execution_state if isinstance(inp.execution_state, dict) else {}
-        ec = exec_state.get("execution_config") if isinstance(exec_state.get("execution_config"), dict) else {}
-        forced_entry = str(ec.get("entry_point") or "").strip().lower()
-        if forced_entry:
-            if forced_entry not in agents_set:
-                raise GraphAssemblerError(
-                    f"Forced entry_point '{forced_entry}' not in planned agents "
-                    f"for pattern '{inp.pattern_name}': {sorted(agents_set)}"
-                )
-            entry = forced_entry
+        if entry not in agents_set:
+            raise GraphAssemblerError(
+                f"Pattern '{inp.pattern_name}' resolved entry_point '{entry}' not in planned agents: {sorted(agents_set)}"
+            )
 
         graph.set_entry_point(entry)
 
@@ -86,7 +89,7 @@ class GraphAssembler:
         if getattr(pattern, "has_conditional", None) and pattern.has_conditional():
             self._add_conditional_edges(graph, pattern, agents, inp.pattern_name)
 
-        # ---- Base edges from pattern
+        # ---- Base edges from pattern (already filtered to agent set by GraphPattern)
         edges: List[Dict[str, str]] = pattern.resolve_edges(agents) or []
         self._assert_edges_valid(edges, agents, inp.pattern_name)
 
@@ -113,7 +116,6 @@ class GraphAssembler:
         try:
             available = set(self.nodes.available())
         except Exception:
-            # If NodeRegistry.available() is not present or fails, we degrade to probing.
             available = set()
 
         if available:
@@ -125,17 +127,92 @@ class GraphAssembler:
                 )
             return
 
-        # Fallback: attempt to resolve each node; any failure is missing.
         missing: List[str] = []
         for a in agents:
             try:
                 _ = self.nodes.get(a)
             except Exception:
                 missing.append(a)
+
         if missing:
             raise GraphAssemblerError(
                 f"Missing node(s) for pattern '{pattern_name}': {', '.join(sorted(set(missing)))}"
             )
+
+    # ------------------------------------------------------------------
+    # ROUTER WRAPPING (BEST PRACTICE)
+    # ------------------------------------------------------------------
+
+    def _wrap_router_for_edge(
+        self,
+        *,
+        router_name: str,
+        router_fn: Callable[[OSSSState], str],
+        from_node: str,
+        allowed_keys: set[str],
+        fallback: str,
+        pattern_name: str,
+    ) -> Callable[[OSSSState], str]:
+        """
+        Best-practice:
+        - never let a router exception break execution
+        - ensure router output is a valid branch key for THIS edge
+        """
+        allowed_keys = set(allowed_keys)
+        if fallback not in allowed_keys and allowed_keys:
+            # deterministic: pick a stable fallback if caller gave a bad one
+            fallback = sorted(allowed_keys)[0]
+
+        def _wrapped(state: OSSSState) -> str:
+            try:
+                out = router_fn(state)
+                if not isinstance(out, str):
+                    self.logger.error(
+                        "router_return_non_string",
+                        extra={
+                            "event": "router_return_non_string",
+                            "pattern": pattern_name,
+                            "from_node": from_node,
+                            "router": router_name,
+                            "out_type": type(out).__name__,
+                        },
+                    )
+                    return fallback
+
+                key = out.strip()
+                if key in allowed_keys:
+                    return key
+
+                self.logger.error(
+                    "router_invalid_output_for_edge",
+                    extra={
+                        "event": "router_invalid_output_for_edge",
+                        "pattern": pattern_name,
+                        "from_node": from_node,
+                        "router": router_name,
+                        "out": key,
+                        "allowed": sorted(allowed_keys),
+                        "fallback": fallback,
+                    },
+                )
+                return fallback
+            except Exception as exc:
+                self.logger.error(
+                    "router_exception_clamped",
+                    exc_info=True,
+                    extra={
+                        "event": "router_exception_clamped",
+                        "pattern": pattern_name,
+                        "from_node": from_node,
+                        "router": router_name,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "fallback": fallback,
+                    },
+                )
+                return fallback
+
+        return _wrapped
 
     # ------------------------------------------------------------------
     # CONDITIONAL EDGES
@@ -172,28 +249,45 @@ class GraphAssembler:
                     f"for from_node '{from_node}', but it is not registered"
                 ) from e
 
-            dest_map: Dict[str, Any] = {"END": END}
+            # Destinations are already filtered to the planned agent set by GraphPattern.
+            # Translate "END" -> END for LangGraph.
+            dest_map: Dict[str, Any] = {}
 
             get_dests = getattr(pattern, "resolve_conditional_destinations_for", None)
             if callable(get_dests):
-                for k, dest in (get_dests(from_node, agents) or {}).items():
-                    if not k:
-                        continue
+                raw_map = get_dests(from_node, agents) or {}
+            else:
+                raw_map = {}
 
-                    if isinstance(dest, str) and dest.strip().lower() == "end":
-                        dest_map[str(k)] = END
-                        continue
+            for k, dest in raw_map.items():
+                if not k:
+                    continue
+                d = str(dest or "").strip()
+                if not d:
+                    continue
+                if d.strip().lower() == "end":
+                    dest_map[str(k)] = END
+                else:
+                    dn = d.strip().lower()
+                    if dn in agents_set:
+                        dest_map[str(k)] = dn
 
-                    d = str(dest).strip().lower()
-                    if d in agents_set:
-                        dest_map[str(k)] = d
-                    else:
-                        # We intentionally ignore unknown destinations to keep patterns flexible,
-                        # but you can uncomment the next line to hard-fail instead.
-                        # raise GraphAssemblerError(f"Conditional dest '{d}' not in agents for pattern '{pattern_name}'")
-                        pass
+            # Optional default end mapping (safe no-op unless routers emit "END")
+            dest_map.setdefault("END", END)
 
-            graph.add_conditional_edges(from_node, router_fn, dest_map)
+            # ✅ BEST PRACTICE: wrap router so it can't crash execution or return invalid keys.
+            allowed_keys = set(dest_map.keys())
+            fallback_key = "END" if "END" in allowed_keys else (sorted(allowed_keys)[0] if allowed_keys else "END")
+            safe_router_fn = self._wrap_router_for_edge(
+                router_name=router_name,
+                router_fn=router_fn,
+                from_node=from_node,
+                allowed_keys=allowed_keys,
+                fallback=fallback_key,
+                pattern_name=pattern_name,
+            )
+
+            graph.add_conditional_edges(from_node, safe_router_fn, dest_map)
 
     # ------------------------------------------------------------------
     # EDGE VALIDATION

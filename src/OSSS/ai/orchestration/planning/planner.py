@@ -105,6 +105,7 @@ def _enforce_plan_invariants(exec_state: Dict[str, Any], plan: ExecutionPlan) ->
     if plan_route is not None and not isinstance(plan_route, str):
         raise TypeError("ExecutionPlan.route must be str when provided")
 
+    # NOTE: historical behavior: if plan.route is set, trust plan.route_locked; otherwise use exec_state lock
     effective_locked = bool(plan_route_locked) if plan_route is not None else bool(exec_route_locked)
     effective_route = (plan_route or exec_route or "").strip().lower() or None
 
@@ -145,6 +146,37 @@ def _enforce_plan_invariants(exec_state: Dict[str, Any], plan: ExecutionPlan) ->
     )
 
 
+def _wizard_collect_details_fastpath(exec_state: Dict[str, Any]) -> Optional[ExecutionPlan]:
+    """
+    Wizard collect-details fast-path (CRITICAL):
+
+    If the DataQuery wizard is in progress and step == "collect_details",
+    and we are NOT awaiting a pending_action confirmation,
+    then we MUST NOT run refiner and MUST start at data_query.
+
+    This MUST apply even when route_locked=True (because route_locked is not "entry_point_locked").
+    """
+    wizard = exec_state.get("wizard") or {}
+    pending = exec_state.get("pending_action") or {}
+
+    wizard_in_progress = bool(exec_state.get("wizard_in_progress")) or bool(wizard)
+    wizard_step = wizard.get("step") if isinstance(wizard, dict) else None
+
+    awaiting = isinstance(pending, dict) and pending.get("awaiting") is True
+
+    if wizard_in_progress and wizard_step == "collect_details" and not awaiting:
+        return ExecutionPlan(
+            pattern="data_query",
+            agents=["data_query", "final"],
+            entry_point="data_query",
+            route="data_query",
+            route_locked=True,
+            meta={"reason": "wizard_in_progress_collect_details_fastpath", "source": "planner"},
+        )
+
+    return None
+
+
 class Planner:
     """
     STRICT Planner:
@@ -164,7 +196,29 @@ class Planner:
         if not isinstance(request, dict):
             raise TypeError("request must be dict[str, Any]")
 
-        # ✅ 1) Honor route lock FIRST (best practice)
+        # ✅ 0) Wizard collect-details fast-path MUST win (even under route lock)
+        wizard_fast = _wizard_collect_details_fastpath(exec_state)
+        if wizard_fast is not None:
+            enforced = _enforce_plan_invariants(exec_state, wizard_fast)
+
+            logger.info(
+                "planning.wizard_collect_details_fastpath",
+                extra={
+                    "event": "planning.wizard_collect_details_fastpath",
+                    "wizard_in_progress": bool(exec_state.get("wizard_in_progress")) or bool(exec_state.get("wizard")),
+                    "wizard_step": (exec_state.get("wizard") or {}).get("step") if isinstance(exec_state.get("wizard"), dict) else None,
+                    "route_locked": bool(exec_state.get("route_locked")),
+                    "locked_route": (exec_state.get("route") or "").strip().lower() or None,
+                    "plan_pattern": getattr(enforced, "pattern", None),
+                    "plan_route": getattr(enforced, "route", None),
+                    "plan_agents": getattr(enforced, "agents", None),
+                    "plan_entry_point": getattr(enforced, "entry_point", None),
+                    "plan_meta": getattr(enforced, "meta", None),
+                },
+            )
+            return enforced
+
+        # ✅ 1) Honor route lock NEXT (best practice)
         if bool(exec_state.get("route_locked")):
             locked_route = (exec_state.get("route") or "").strip().lower()
             locked_pattern = (exec_state.get("graph_pattern") or "").strip().lower()
@@ -179,8 +233,10 @@ class Planner:
                 )
 
             # Choose agents/entry_point that satisfy invariants under the lock.
+            # IMPORTANT: route lock does NOT imply "start at refiner". It only constrains the contract/pattern.
             agents: list[str] = ["refiner", "final"]
             entry_point = "refiner"
+
             if locked_pattern == "data_query" or locked_route == "data_query":
                 agents = ["refiner", "data_query", "final"]
                 entry_point = "refiner"
@@ -197,13 +253,12 @@ class Planner:
 
             enforced = _enforce_plan_invariants(exec_state, locked_plan)
 
-            # ✅ PATCH 2: log “route_locked honored” and show resulting plan
             logger.info(
                 "planning.route_locked",
                 extra={
                     "event": "planning.route_locked",
                     "route_locked": True,
-                    "locked_route": locked_route,
+                    "locked_route": locked_route or None,
                     "locked_pattern": locked_pattern,
                     "plan_pattern": getattr(enforced, "pattern", None),
                     "plan_route": getattr(enforced, "route", None),
@@ -227,9 +282,11 @@ class Planner:
 
         # Contract Superset Mode default:
         # choose the superset-capable contract pattern so the graph contains the DB branch.
+        # ✅ Include data_query agent so downstream execution doesn't depend on implicit inclusion.
         default_plan = ExecutionPlan(
             pattern="data_query",
-            agents=["refiner", "final"],
+            agents=["refiner", "data_query", "final"],
             entry_point="refiner",
+            meta={"reason": "default_contract_superset", "source": "planner"},
         )
         return _enforce_plan_invariants(exec_state, default_plan)

@@ -31,6 +31,16 @@ Additional hardening applied (from latest review):
     - Preserve any node-ish returned route as "next_node".
 11) ✅ Pending-action resume detection safety fallback:
     - If normalizer couldn't surface "handled" but wrote pending_action_result, treat as resume turn.
+
+New (wizard fast-path):
+12) ✅ Wizard fast-path BEFORE classifier/planner:
+    - If wizard is in progress and step == "collect_details" and NOT awaiting pending_action,
+      force plan to data_query and skip classifier/planner side effects.
+
+Suggested changes applied (observability hardening):
+13) ✅ Recompute awaiting-only pending_action flags right before each major log block
+    (planner completed / plan applied / orchestrator.run) so logs match current exec_state
+    even if pending_action.awaiting is flipped later in the turn.
 """
 
 import asyncio
@@ -215,11 +225,12 @@ class LangGraphOrchestrationAPI:
           1) resolve ids + base config
           2) restore conversation execution_state
           3) normalize turn (wizard / pending_action resume)
-          4) classify (unless pending-action resume / lock fast-path)
-          5) plan
-          6) apply plan to config/state
-          7) run orchestrator (compile per-run using plan)
-          8) persist updated conversation state (execution_state only)
+          4) wizard fast-path (collect_details answers) BEFORE classifier/planner
+          5) classify (unless pending-action resume / lock fast-path)
+          6) plan
+          7) apply plan to config/state
+          8) run orchestrator (compile per-run using plan)
+          9) persist updated conversation state (execution_state only)
         """
         t0 = time.time()
         workflow_id = str(uuid.uuid4())
@@ -256,6 +267,15 @@ class LangGraphOrchestrationAPI:
                 restored=restored,
             )
 
+            # ------------------------------------------------------------------
+            # ✅ Fix 2: Stop “pending_action_resume_turn” from contaminating later turns
+            #
+            # These are transient, one-turn protocol fields and must NEVER survive
+            # across requests via conversation persistence.
+            # ------------------------------------------------------------------
+            exec_state.pop("pending_action_resume_turn", None)
+            exec_state.pop("pending_action_result", None)
+
         # (3) Normalize turn (pending_action yes/no consumption happens here)
         normalized_text, exec_state = self._normalize_turn(exec_state)
 
@@ -276,8 +296,9 @@ class LangGraphOrchestrationAPI:
         # ✅ Resume turns are ONLY those the turn controller/normalizer actually handled
         is_pending_action_resume_turn = bool(exec_state.get("pending_action_resume_turn"))
 
-        # ✅ awaiting-only truth for pending action presence
+        # ✅ awaiting-only truth for pending action presence (for *this* stage)
         has_pending_action = has_awaiting_pending_action(exec_state)
+        pa_type = get_pending_action_type(exec_state) if has_pending_action else None
 
         logger.debug(
             "[orchestration_api] normalized query",
@@ -288,83 +309,153 @@ class LangGraphOrchestrationAPI:
                 "conversation_id_explicit": bool(request.conversation_id),
                 "wizard_bailed": exec_state.get("wizard_bailed", False),
                 "wizard_in_progress": exec_state.get("wizard_in_progress", False),
+                "wizard_step": (exec_state.get("wizard") or {}).get("step")
+                if isinstance(exec_state.get("wizard"), dict)
+                else None,
                 "mode": base_config.get("option_mode"),
                 "has_pending_action": has_pending_action,
-                "pending_action_type": get_pending_action_type(exec_state) if has_pending_action else None,
+                "pending_action_type": pa_type,
                 "pending_action_resume_turn": is_pending_action_resume_turn,
                 "route_locked": exec_state.get("route_locked", False),
                 "route": exec_state.get("route"),
             },
         )
 
-        # (4) Classify (signature-compat) — SKIP on pending-action resume turns
-        base_config["execution_state"] = exec_state
+        # ------------------------------------------------------------
+        # ✅ WIZARD FAST-PATH (collect_details answers)
+        # ------------------------------------------------------------
+        wizard = exec_state.get("wizard") or {}
+        wizard_in_progress = bool(exec_state.get("wizard_in_progress")) or bool(wizard)
+        wizard_step = wizard.get("step") if isinstance(wizard, dict) else None
+
+        # Only treat pending_action as blocking wizard fast-path when awaiting=True
+        awaiting = has_pending_action
+
+        wizard_fast_path = (
+            (not is_pending_action_resume_turn)
+            and wizard_in_progress
+            and (wizard_step == "collect_details")
+            and (not awaiting)
+        )
 
         classification = None
-        if not is_pending_action_resume_turn:
-            route_reason = str(exec_state.get("route_reason") or "").strip().lower()
-            route_key = str(exec_state.get("route_key") or "").strip().lower()
-            classification = await self._call_classifier(
+
+        if wizard_fast_path:
+            # Force “wizard answer” behavior: no classifier, no planner recomputation.
+            user_text = effective_query
+
+            exec_state["raw_user_text"] = user_text
+            exec_state["question"] = user_text
+            exec_state["user_question"] = user_text
+            exec_state["query"] = user_text
+            exec_state["effective_queries"] = {"user": user_text}
+
+            plan = ExecutionPlan(
+                pattern="data_query",
+                agents=["data_query", "final"],
+                entry_point="data_query",
+                route="data_query",
+                route_locked=True,
+                meta={"reason": "wizard_in_progress_collect_details_fastpath"},
+            )
+
+            # ✅ recompute for log accuracy (wizard might have mutated exec_state earlier)
+            has_pending_action = has_awaiting_pending_action(exec_state)
+            pa_type = get_pending_action_type(exec_state) if has_pending_action else None
+
+            logger.info(
+                "[orchestration_api] wizard fast-path engaged (skip classifier/planner)",
+                extra={
+                    "event": "wizard.fast_path",
+                    "workflow_id": workflow_id,
+                    "conversation_id": conversation_id,
+                    "wizard_step": wizard_step,
+                    "route": "data_query",
+                    "entry_point": "data_query",
+                    "has_pending_action": has_pending_action,
+                    "pending_action_type": pa_type,
+                },
+            )
+        else:
+            # (4) Classify (signature-compat) — SKIP on pending-action resume turns
+            base_config["execution_state"] = exec_state
+
+            if not is_pending_action_resume_turn:
+                route_reason = str(exec_state.get("route_reason") or "").strip().lower()
+                route_key = str(exec_state.get("route_key") or "").strip().lower()
+                classification = await self._call_classifier(
+                    query=effective_query,
+                    workflow_id=workflow_id,
+                    correlation_id=base_config["correlation_id"],
+                    config=base_config,
+                    execution_state=exec_state,
+                )
+
+                write_fn = getattr(self._classifier, "write_to_execution_state", None)
+                if callable(write_fn):
+                    try:
+                        exec_state = write_fn(exec_state, classification)
+                    except Exception:
+                        logger.exception("[orchestration_api] classifier.write_to_execution_state failed (continuing)")
+            else:
+                route_reason = str(exec_state.get("route_reason") or "").strip().lower()
+                route_key = str(exec_state.get("route_key") or "").strip().lower()
+
+                # ✅ recompute for log accuracy (TurnController might flip awaiting mid-turn)
+                has_pending_action = has_awaiting_pending_action(exec_state)
+                pa_type = get_pending_action_type(exec_state) if has_pending_action else None
+
+                logger.info(
+                    "[orchestration_api] skipping classifier on pending-action resume turn",
+                    extra={
+                        "event": "pipeline.skip_classifier",
+                        "workflow_id": workflow_id,
+                        "conversation_id": conversation_id,
+                        "route_reason": route_reason,
+                        "route_key": route_key,
+                        "route_locked": bool(exec_state.get("route_locked")),
+                        "route": exec_state.get("route"),
+                        "has_pending_action": has_pending_action,
+                        "pending_action_type": pa_type,
+                    },
+                )
+
+            # (5) Plan (single source of truth; signature-compat)
+            plan = self._call_planner(
                 query=effective_query,
-                workflow_id=workflow_id,
-                correlation_id=base_config["correlation_id"],
                 config=base_config,
                 execution_state=exec_state,
             )
 
-            write_fn = getattr(self._classifier, "write_to_execution_state", None)
-            if callable(write_fn):
-                try:
-                    exec_state = write_fn(exec_state, classification)
-                except Exception:
-                    logger.exception("[orchestration_api] classifier.write_to_execution_state failed (continuing)")
-        else:
-            route_reason = str(exec_state.get("route_reason") or "").strip().lower()
-            route_key = str(exec_state.get("route_key") or "").strip().lower()
+            # ✅ recompute for log accuracy (planner/normalizer may mutate exec_state)
+            has_pending_action = has_awaiting_pending_action(exec_state)
+            pa_type = get_pending_action_type(exec_state) if has_pending_action else None
 
             logger.info(
-                "[orchestration_api] skipping classifier on pending-action resume turn",
+                "[orchestration_api] planning completed",
                 extra={
-                    "event": "pipeline.skip_classifier",
+                    "event": "planning.completed",
                     "workflow_id": workflow_id,
                     "conversation_id": conversation_id,
-                    "route_reason": route_reason,
-                    "route_key": route_key,
+                    "mode": base_config.get("option_mode"),
+                    "signals": exec_state.get("routing_signals", {}) or {},
+                    "plan_type": type(plan).__name__,
+                    "plan_pattern": getattr(plan, "pattern", None),
+                    "compile_variant": getattr(plan, "compile_variant", None),
+                    "agents_superset": base_config.get("agents_superset", False),
                     "route_locked": bool(exec_state.get("route_locked")),
                     "route": exec_state.get("route"),
                     "has_pending_action": has_pending_action,
-                    "pending_action_type": get_pending_action_type(exec_state) if has_pending_action else None,
+                    "pending_action_type": pa_type,
                 },
             )
 
-        # (5) Plan (single source of truth; signature-compat)
-        plan = self._call_planner(
-            query=effective_query,
-            config=base_config,
-            execution_state=exec_state,
-        )
-
-        logger.info(
-            "[orchestration_api] planning completed",
-            extra={
-                "event": "planning.completed",
-                "workflow_id": workflow_id,
-                "conversation_id": conversation_id,
-                "mode": base_config.get("option_mode"),
-                "signals": exec_state.get("routing_signals", {}) or {},
-                "plan_type": type(plan).__name__,
-                "plan_pattern": getattr(plan, "pattern", None),
-                "compile_variant": getattr(plan, "compile_variant", None),
-                "agents_superset": base_config.get("agents_superset", False),
-                "route_locked": bool(exec_state.get("route_locked")),
-                "route": exec_state.get("route"),
-                "has_pending_action": has_pending_action,
-                "pending_action_type": get_pending_action_type(exec_state) if has_pending_action else None,
-            },
-        )
-
         # (6) Apply plan to config/state deterministically
         self._apply_plan(base_config, exec_state, plan)
+
+        # ✅ recompute for log accuracy (apply_plan can affect route/locks)
+        has_pending_action = has_awaiting_pending_action(exec_state)
+        pa_type = get_pending_action_type(exec_state) if has_pending_action else None
 
         logger.info(
             "[orchestration_api] plan applied",
@@ -380,13 +471,18 @@ class LangGraphOrchestrationAPI:
                 "route_locked": exec_state.get("route_locked", False),
                 "compile_variant": base_config.get("compile_variant"),
                 "agents_superset": base_config.get("agents_superset", False),
+                "wizard_fast_path": bool(wizard_fast_path),
                 "has_pending_action": has_pending_action,
-                "pending_action_type": get_pending_action_type(exec_state) if has_pending_action else None,
+                "pending_action_type": pa_type,
             },
         )
 
         # (7) Run orchestrator (pass exec_state through config for merge into initial_state)
         base_config["execution_state"] = exec_state
+
+        # ✅ recompute for log accuracy right before orchestrator.run (agents may have mutated it)
+        has_pending_action = has_awaiting_pending_action(exec_state)
+        pa_type = get_pending_action_type(exec_state) if has_pending_action else None
 
         logger.info(
             "[api] Delegating to LangGraphOrchestrator",
@@ -402,8 +498,9 @@ class LangGraphOrchestrationAPI:
                 "agents": base_config.get("agents"),
                 "route": exec_state.get("route"),
                 "route_locked": bool(exec_state.get("route_locked")),
+                "wizard_fast_path": bool(wizard_fast_path),
                 "has_pending_action": has_pending_action,
-                "pending_action_type": get_pending_action_type(exec_state) if has_pending_action else None,
+                "pending_action_type": pa_type,
             },
         )
 
@@ -447,6 +544,12 @@ class LangGraphOrchestrationAPI:
             base_config.get("entry_point") or getattr(plan, "entry_point", None) or "refiner"
         ).strip().lower()
 
+        # ------------------------------------------------------------------
+        # ✅ Fix 2: Never persist transient pending-action resume flags/results.
+        # ------------------------------------------------------------------
+        result_exec_state.pop("pending_action_resume_turn", None)
+        result_exec_state.pop("pending_action_result", None)
+
         # (8) Persist updated conversation execution_state (persist wrapper payload)
         await self._save_conversation_state(conversation_id, result_exec_state)
 
@@ -469,6 +572,7 @@ class LangGraphOrchestrationAPI:
                 "route": result_exec_state.get("route"),
                 "entry_point": result_exec_state.get("entry_point"),
                 "next_node": result_exec_state.get("next_node"),
+                "wizard_fast_path": bool(wizard_fast_path),
             },
         )
 
@@ -624,7 +728,9 @@ class LangGraphOrchestrationAPI:
         merged.setdefault("wizard_bailed", False)
         merged.setdefault("wizard_in_progress", False)
 
-        if "pending_action" in merged and merged["pending_action"] is not None and not isinstance(merged["pending_action"], dict):
+        if "pending_action" in merged and merged["pending_action"] is not None and not isinstance(
+            merged["pending_action"], dict
+        ):
             merged["pending_action"] = None
         if "wizard" in merged and merged["wizard"] is not None and not isinstance(merged["wizard"], dict):
             merged["wizard"] = None

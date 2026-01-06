@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from OSSS.ai.agents.base_agent import (
     BaseAgent,
     NodeType,
@@ -175,6 +177,66 @@ class RefinerAgent(BaseAgent):
         logger.debug(f"[{self.name}] RefinerAgent initialized with config: {self.config}")
 
     # ----------------------------------------------------------------------
+    # ✅ Fix 1 (Contract Superset Mode): prevent non-canonical "pattern" leakage
+    # ----------------------------------------------------------------------
+    def _sanitize_contract_fields(
+        self,
+        *,
+        entities: Dict[str, Any],
+        date_filters: Dict[str, Any],
+        flags: Dict[str, Any],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+        """
+        Fix 1: Pattern names are contracts and must be canonical only.
+
+        The Refiner MUST NOT emit/propagate any graph/planning/pattern fields, because:
+          - "superset" is not a pattern name
+          - planning/routing happens elsewhere (orchestrator/planner)
+
+        This protects the system from accidental LLM outputs like:
+          flags.pattern="superset" / flags.graph_pattern="superset"
+        """
+        if not isinstance(entities, dict):
+            entities = {}
+        if not isinstance(date_filters, dict):
+            date_filters = {}
+        if not isinstance(flags, dict):
+            flags = {}
+
+        # Work on copies to avoid mutating dicts that might be shared
+        entities = deepcopy(entities)
+        date_filters = deepcopy(date_filters)
+        flags = deepcopy(flags)
+
+        # Strip any planning/graph/pattern fields if present (from LLM hallucinations or legacy clients)
+        banned_flag_keys = {
+            "pattern",
+            "graph_pattern",
+            "graph",
+            "router_pattern",
+            "resume_pattern",
+            "planner_pattern",
+            "compile_variant",  # planner/orchestrator concern, not refiner concern
+            "agents_superset",  # planner/orchestrator concern, not refiner concern
+            "superset",  # ambiguous; never a valid contract pattern name
+        }
+        for k in list(flags.keys()):
+            if k in banned_flag_keys:
+                flags.pop(k, None)
+
+        # Also strip any nested variants if LLM shoved them under meta-ish buckets
+        for bucket_key in ("routing", "planner", "orchestration", "graph_config", "compile"):
+            v = flags.get(bucket_key)
+            if isinstance(v, dict):
+                for k in list(v.keys()):
+                    if k in banned_flag_keys:
+                        v.pop(k, None)
+                if not v:
+                    flags.pop(bucket_key, None)
+
+        return entities, date_filters, flags
+
+    # ----------------------------------------------------------------------
     # ✅ PR5: Stable refiner_output contract helpers
     # ----------------------------------------------------------------------
     def _build_refiner_output_markdown(self, refined_query: str, signals: Dict[str, Any]) -> str:
@@ -222,6 +284,13 @@ class RefinerAgent(BaseAgent):
         """
         if not hasattr(context, "execution_state") or not isinstance(context.execution_state, dict):
             context.execution_state = {}
+
+        # Fix 1 safety: ensure we never persist any non-contract planning/pattern fields
+        entities, date_filters, flags = self._sanitize_contract_fields(
+            entities=entities,
+            date_filters=date_filters,
+            flags=flags,
+        )
 
         analysis_signals: Dict[str, Any] = {
             "processing_mode": processing_mode,
@@ -869,6 +938,13 @@ class RefinerAgent(BaseAgent):
             except Exception as e:
                 logger.warning("[%s] NLPExtractionService.extract failed; continuing without NLP: %s", self.name, e)
 
+        # ✅ Fix 1: sanitize any leaked pattern/planning fields from LLM/NLP merges
+        entities, date_filters, flags = self._sanitize_contract_fields(
+            entities=entities,
+            date_filters=date_filters,
+            flags=flags,
+        )
+
         # ------------------------------------------------------------------
         # 4) Optional final refinement service pass (LLM-based)
         #    ✅ contract-mode friendly: only runs if config.enable_final_refinement True
@@ -912,6 +988,13 @@ class RefinerAgent(BaseAgent):
         # ------------------------------------------------------------------
         if not hasattr(context, "execution_state") or not isinstance(context.execution_state, dict):
             context.execution_state = {}
+
+        # Fix 1 safety (again, before persistence): make sure contract is clean
+        entities, date_filters, flags = self._sanitize_contract_fields(
+            entities=entities,
+            date_filters=date_filters,
+            flags=flags,
+        )
 
         context.execution_state.setdefault("refiner", {})
         context.execution_state["refiner"].update(

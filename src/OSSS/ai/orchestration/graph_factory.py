@@ -24,8 +24,9 @@ Superset contract mode (Fix 1 best-practice):
     - compile_variant == "superset" and/or execution_state.execution_config.agents_superset == True
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, replace
 from typing import Any, Dict, List, Optional
+import copy
 import os
 
 from OSSS.ai.orchestration.memory_manager import OSSSMemoryManager
@@ -58,6 +59,7 @@ class GraphBuildError(Exception):
 class GraphConfig:
     agents_to_run: List[str]
     pattern_name: str
+    entry_point: str  # ✅ NEW (Fix 2): runtime entry point for this compile
     execution_state: Optional[Dict[str, Any]] = None
     enable_checkpoints: bool = False
     memory_manager: Optional[OSSSMemoryManager] = None
@@ -75,6 +77,37 @@ class GraphConfig:
 
 
 _END = "END"
+
+
+def _normalize_entry_point(entry_point: Any) -> str:
+    if entry_point is None:
+        raise ValueError("ExecutionPlan.entry_point is required (non-empty str)")
+    if not isinstance(entry_point, str):
+        raise TypeError("ExecutionPlan.entry_point must be a string")
+    ep = entry_point.strip().lower()
+    if not ep:
+        raise ValueError("ExecutionPlan.entry_point must be a non-empty string")
+    if ep == _END:
+        raise ValueError("ExecutionPlan.entry_point cannot be END")
+    return ep
+
+
+def _override_pattern_entry_point(pattern_spec: GraphPattern, *, entry_point: str) -> GraphPattern:
+    """
+    Fix 2: pattern name stays canonical contract, but the *runtime entry point*
+    may be overridden per-run (e.g. wizard fast-path wants entry_point='data_query').
+    """
+    # safest: if GraphPattern is dataclass-like
+    if is_dataclass(pattern_spec):
+        return replace(pattern_spec, entry_point=entry_point)
+
+    # fallback: shallow copy + setattr
+    ps = copy.copy(pattern_spec)
+    try:
+        setattr(ps, "entry_point", entry_point)
+    except Exception as e:
+        raise GraphBuildError(f"Unable to override pattern_spec.entry_point to {entry_point!r}: {e}") from e
+    return ps
 
 
 def _ensure_dict(x: Any, *, name: str) -> Dict[str, Any]:
@@ -364,6 +397,61 @@ class GraphFactory:
                 f"(plan={pattern!r}, execution_state={ep_pattern!r}, plan_id={id(plan)}, execution_plan_keys={ep_keys})"
             )
 
+        # ------------------------------------------------------------------
+        # ✅ Fix 2 (Option A invariant):
+        #   execution_state["execution_plan"]["entry_point"] must exist and be respected
+        # ------------------------------------------------------------------
+        ep_entry_point_raw = ep.get("entry_point")
+        if ep_entry_point_raw is None:
+            self.logger.error(
+                "[graph_factory] invariant violated: missing execution_plan.entry_point",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_keys": ep_keys,
+                },
+            )
+            raise GraphBuildError(
+                "Option A invariant violated: execution_state['execution_plan']['entry_point'] missing at compile time"
+            )
+
+        try:
+            ep_entry_point = _normalize_entry_point(str(ep_entry_point_raw))
+        except Exception as e:
+            self.logger.error(
+                "[graph_factory] invariant violated: invalid execution_plan.entry_point",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_pattern_normalized": pattern,
+                    "execution_plan_entry_point_raw": ep_entry_point_raw,
+                    "execution_plan_keys": ep_keys,
+                },
+            )
+            raise GraphBuildError(
+                "Option A invariant violated: execution_state['execution_plan']['entry_point'] is invalid"
+            ) from e
+
+        # Plan entry_point must match execution_plan entry_point (strict)
+        plan_entry_raw = getattr(plan, "entry_point", None)
+        plan_entry = _normalize_entry_point(plan_entry_raw) if plan_entry_raw is not None else ep_entry_point
+        if plan_entry != ep_entry_point:
+            self.logger.error(
+                "[graph_factory] invariant violated: entry_point mismatch",
+                extra={
+                    "plan_object_id": id(plan),
+                    "plan_entry_point_normalized": plan_entry,
+                    "execution_plan_entry_point_normalized": ep_entry_point,
+                    "execution_plan_entry_point_raw": ep_entry_point_raw,
+                    "execution_plan_keys": ep_keys,
+                },
+            )
+            raise GraphBuildError(
+                "Option A invariant violated: plan.entry_point != execution_state.execution_plan.entry_point "
+                f"(plan={plan_entry!r}, execution_state={ep_entry_point!r})"
+            )
+
+        entry_point = ep_entry_point
+
         pattern_spec = self.pattern_service.get(pattern)
         if pattern_spec is None:
             raise GraphBuildError(
@@ -389,6 +477,7 @@ class GraphFactory:
         ep.setdefault("agents", list(plan_agents))
         ep["compiled_superset_agents"] = list(superset_agents)
         ep["compile_variant"] = variant
+        ep["entry_point"] = entry_point  # ✅ observability only
 
         ec = _ensure_execution_config(exec_state)
         ec["graph_pattern"] = pattern
@@ -398,6 +487,7 @@ class GraphFactory:
         cfg = GraphConfig(
             agents_to_run=superset_agents,
             pattern_name=pattern,
+            entry_point=entry_point,  # ✅ NEW
             execution_state=exec_state,
             enable_checkpoints=enable_checkpoints,
             memory_manager=memory_manager,
@@ -504,8 +594,12 @@ class GraphFactory:
                 "pattern_name": resolved_pattern,
                 "agents": resolved_agents,
                 "compile_variant": cfg.compile_variant,
+                "entry_point": cfg.entry_point,  # ✅ NEW
             },
         )
+
+        # ✅ Fix 2: compile MUST honor the runtime entry point (wizard fast-path etc.)
+        effective_spec = _override_pattern_entry_point(pattern_spec, entry_point=cfg.entry_point)
 
         if cfg.enable_validation:
             v = cfg.validator or self.default_validator
@@ -524,7 +618,7 @@ class GraphFactory:
         # ✅ Optional: validate required routers before wiring
         required = set()
         try:
-            required = pattern_spec.required_router_names(resolved_agents)
+            required = effective_spec.required_router_names(resolved_agents)
         except Exception:
             required = set()
 
@@ -541,6 +635,7 @@ class GraphFactory:
             resolved_agents,
             cfg.enable_checkpoints,
             compile_variant=cfg.compile_variant,
+            entry_point=cfg.entry_point,  # ✅ NEW
         )
 
         if cfg.cache_enabled:
@@ -557,6 +652,7 @@ class GraphFactory:
                         "pattern_name": resolved_pattern,
                         "agents": resolved_agents,
                         "compile_variant": cfg.compile_variant,
+                        "entry_point": cfg.entry_point,  # ✅ NEW
                         "cache_version": cache_version,
                     },
                 )
@@ -568,7 +664,7 @@ class GraphFactory:
             execution_state=cfg.execution_state if isinstance(cfg.execution_state, dict) else None,
         )
 
-        graph = self.assembler.assemble(pattern_spec, inp)
+        graph = self.assembler.assemble(effective_spec, inp)
         compiled = self._compile_graph(graph, cfg)
 
         if cfg.cache_enabled:
@@ -596,9 +692,11 @@ class GraphFactory:
         checkpoints_enabled: bool,
         *,
         compile_variant: str,
+        entry_point: str,  # ✅ NEW
     ) -> str:
         fp = self.pattern_service.fingerprint()
         ck = "ckpt1" if checkpoints_enabled else "ckpt0"
         agents_key = ",".join([a.lower() for a in agents])
         variant = (compile_variant or "default").strip().lower()
-        return f"{pattern_name}:{variant}:{agents_key}:{ck}:patterns:{fp}"
+        ep = (entry_point or "").strip().lower() or "refiner"
+        return f"{pattern_name}:{variant}:ep:{ep}:{agents_key}:{ck}:patterns:{fp}"

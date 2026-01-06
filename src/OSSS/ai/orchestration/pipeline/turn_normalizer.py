@@ -1,3 +1,4 @@
+# OSSS/ai/orchestration/pipeline/turn_normalizer.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -67,6 +68,7 @@ def _is_cancel(s: str) -> bool:
 # We keep them only so older callers/types still import cleanly.
 # ------------------------------------------------------------------
 
+
 def _get_pending_action(exec_state: Dict[str, Any]) -> Optional[PendingAction]:
     pa = exec_state.get("pending_action")
     return cast(PendingAction, pa) if isinstance(pa, dict) else None
@@ -131,6 +133,7 @@ def _clear_pending_action(exec_state: Dict[str, Any], pa: PendingAction | None, 
 
 # ------------------------------------------------------------------
 
+
 @dataclass
 class NormalizeResult:
     handled: bool
@@ -164,11 +167,7 @@ def _coerce_inputs(*args: Any, **kwargs: Any) -> Tuple[Dict[str, Any], str]:
       - normalize(state=..., text=...)  (legacy)
     """
     # Keyword-first
-    exec_state = (
-        kwargs.get("exec_state")
-        or kwargs.get("execution_state")
-        or kwargs.get("state")
-    )
+    exec_state = kwargs.get("exec_state") or kwargs.get("execution_state") or kwargs.get("state")
     raw_text = (
         kwargs.get("raw_user_text")
         or kwargs.get("user_text")
@@ -201,6 +200,100 @@ def _coerce_inputs(*args: Any, **kwargs: Any) -> Tuple[Dict[str, Any], str]:
     return exec_state, raw_text
 
 
+# ------------------------------------------------------------------
+# ✅ Wizard reply normalization (Fix for "Turn 3 still not working")
+# ------------------------------------------------------------------
+
+
+def _wizard_step(exec_state: Dict[str, Any]) -> str:
+    wiz = exec_state.get("wizard")
+    if not isinstance(wiz, dict):
+        return ""
+    return str(wiz.get("step") or "").strip().lower()
+
+
+def _wizard_original_query(exec_state: Dict[str, Any]) -> str:
+    wiz = exec_state.get("wizard")
+    if not isinstance(wiz, dict):
+        return ""
+    return str(wiz.get("original_query") or "").strip()
+
+
+def _should_capture_wizard_reply(exec_state: Dict[str, Any], raw_user_text: str) -> bool:
+    """
+    We only capture wizard replies when a wizard is actively collecting details,
+    and there is a stable original_query we must not overwrite.
+
+    NOTE (Fix 2):
+    - We *do not* block on exec_state["pending_action_resume_turn"] here anymore.
+      That flag is also used as a general "skip classifier on resume-like turns"
+      (including wizard detail replies), so blocking here would break Turn 3+.
+    """
+    step = _wizard_step(exec_state)
+    if step != "collect_details":
+        return False
+    oq = _wizard_original_query(exec_state)
+    if not oq:
+        return False
+
+    # Don't treat yes/no/cancel tokens as wizard details; those are handled
+    # by TurnController pending_action (or legacy yes/no prompt).
+    if _is_yes(raw_user_text) or _is_no(raw_user_text) or _is_cancel(raw_user_text):
+        return False
+
+    return bool(raw_user_text and raw_user_text.strip())
+
+
+def _apply_wizard_reply_normalization(exec_state: Dict[str, Any], raw_user_text: str) -> NormalizeResult:
+    oq = _wizard_original_query(exec_state)
+    reply = (raw_user_text or "").strip()
+
+    # Store reply for downstream wizard logic
+    exec_state["wizard_user_reply"] = reply
+    exec_state["wizard_user_reply_text"] = reply
+    exec_state.setdefault("effective_queries", {})["wizard_reply"] = reply
+
+    # Suppress detail text from polluting conversation history
+    exec_state["suppress_history"] = True
+    exec_state["wizard_prompted_this_turn"] = False  # this turn is a reply
+
+    # "resume-like" is fine if your pipeline uses it to skip classifier;
+    # just don't let anyone interpret this as a yes/no pending_action resume.
+    exec_state["pending_action_resume_turn"] = True
+    exec_state["pending_action_resume_reason"] = "wizard_collect_details_reply"
+
+    # Keep routing pinned.
+    exec_state["route"] = "data_query"
+    exec_state["route_locked"] = True
+    exec_state["graph_pattern"] = "data_query"
+    exec_state["route_key"] = "wizard_detail_reply"
+    exec_state["route_reason"] = "wizard_collect_details_reply"
+    exec_state["entry_point"] = "data_query"
+
+    # IMPORTANT: DO NOT mutate wizard step here.
+    # IMPORTANT: DO NOT create pending_action here.
+
+    ep = exec_state.get("execution_plan")
+    if isinstance(ep, dict):
+        ep.setdefault("pattern", "data_query")
+        ep["entry_point"] = "data_query"
+
+    logger.info(
+        "turn_normalizer_wizard_detail_reply",
+        extra={
+            "event": "turn_normalizer_wizard_detail_reply",
+            "wizard_step": _wizard_step(exec_state),
+            "original_query_preview": oq[:200],
+            "reply_preview": reply[:200],
+            "route": exec_state.get("route"),
+            "route_locked": bool(exec_state.get("route_locked")),
+            "entry_point": exec_state.get("entry_point"),
+        },
+    )
+
+    return NormalizeResult(True, oq)
+
+
 class TurnNormalizer:
     """
     Runs BEFORE classification/routing/planning.
@@ -215,6 +308,12 @@ class TurnNormalizer:
       - canonical_user_text:
           - YES  -> pending_question (so caller can treat it as the real user intent)
           - NO/CANCEL -> "" (so nothing is routed as a query)
+
+    ✅ Fix for your logs:
+      - When wizard is in collect_details, the user message is a "detail reply"
+        and MUST NOT overwrite the canonical query ("query consents").
+      - Store it as exec_state["wizard_user_reply"] and return canonical_user_text=wizard.original_query.
+      - Also set pending_action_resume_turn=True so classifier is skipped (Fix 2).
     """
 
     @staticmethod
@@ -234,9 +333,26 @@ class TurnNormalizer:
             return _as_payload(res, exec_state)
 
         # ------------------------------------------------------------------
-        # ✅ Removed: legacy pending_action handling block.
-        # TurnController.preprocess() is the ONLY interpreter of pending_action.
+        # ✅ Guard: if a confirm_yes_no contract is awaiting, only accept yes/no/cancel.
+        # Any other text should trigger a reprompt and NOT be treated as wizard details.
         # ------------------------------------------------------------------
+        pa = exec_state.get("pending_action")
+        if isinstance(pa, dict) and pa.get("type") == "confirm_yes_no" and bool(pa.get("awaiting")):
+            if not (_is_yes(raw_user_text) or _is_no(raw_user_text) or _is_cancel(raw_user_text)):
+                exec_state["suppress_history"] = True
+                # keep this as resume-like so classifier stays skipped
+                exec_state["pending_action_resume_turn"] = True
+                exec_state["pending_action_resume_reason"] = "confirm_yes_no_reprompt"
+
+                prompt = "Please reply **yes** or **no**."
+                return _as_payload(NormalizeResult(True, "", prompt_text=prompt), exec_state)
+
+        # ------------------------------------------------------------------
+        # ✅ Fix 3: Wizard "collect_details" reply normalization (Turn 3+)
+        # ------------------------------------------------------------------
+        if _should_capture_wizard_reply(exec_state, raw_user_text):
+            res = _apply_wizard_reply_normalization(exec_state, raw_user_text)
+            return _as_payload(res, exec_state)
 
         # ------------------------------------------------------------------
         # Existing interaction_state path (backwards compatibility)
@@ -266,6 +382,13 @@ class TurnNormalizer:
 
                 exec_state["suppress_history"] = True
 
+                # Ensure entry point remains data_query for wizard resume
+                exec_state["entry_point"] = "data_query"
+                ep = exec_state.get("execution_plan")
+                if isinstance(ep, dict):
+                    ep.setdefault("pattern", "data_query")
+                    ep["entry_point"] = "data_query"
+
             logger.info(
                 "turn_normalizer_wizard_yes",
                 extra={
@@ -278,6 +401,7 @@ class TurnNormalizer:
                     "graph_pattern": exec_state.get("graph_pattern"),
                     "route_key": exec_state.get("route_key"),
                     "route_reason": exec_state.get("route_reason"),
+                    "entry_point": exec_state.get("entry_point"),
                 },
             )
             return _as_payload(NormalizeResult(True, pending_q), exec_state)

@@ -20,6 +20,10 @@ def _safe_get(d: Optional[Dict[str, Any]], key: str, default: Any = None) -> Any
     return d.get(key, default)
 
 
+def _safe_str(v: Any) -> str:
+    return v.strip() if isinstance(v, str) and v.strip() else ""
+
+
 def _build_sources_from_public_sources(public_sources: Optional[List[Dict[str, Any]]]) -> List[SourceItem]:
     """
     Accept sources already in public-ish shape (e.g. answer.sources coming from upstream),
@@ -87,39 +91,74 @@ def _pick_answer_text_markdown(payload: Dict[str, Any]) -> str:
     Choose the public answer.text_markdown.
 
     Priority:
-      1) pending_action prompt (awaiting == True)
-      2) agent_outputs.final (string)
-      3) agent_outputs.refiner (string)
-      4) payload["answer"]["text_markdown"] (if answer is dict)
-      5) payload["answer"] (if answer is string)
-      6) payload["refiner"]["refined_query"] / ["original_query"] (if present)
-      7) execution_state["raw_user_text"] / ["original_query"] / ["query"]
+      1) pending_action prompt (awaiting == True)  (BUT do not accept "echo" values)
+      2) execution_state.answer.text_markdown      (final answer/proxy from route)
+      3) payload["text"]                           (route-level compat bridge)
+      4) agent_outputs.final (string)
+      5) agent_outputs.refiner (string)
+      6) payload["answer"]["text_markdown"] (if answer is dict)
+      7) payload["answer"] (if answer is string)
+      8) payload["refiner"]["refined_query"] / ["original_query"] (if present)
+      9) execution_state["raw_user_text"] / ["original_query"] / ["query"]
     """
     execution_state = _safe_get(payload, "execution_state", {})
     if not isinstance(execution_state, dict):
         execution_state = {}
 
-    # 1) pending_action prompt wins (this is the "first turn still not prompting" fix)
+    # helpful for "echo" detection
+    fallback_candidates: List[str] = []
+    for k in ("raw_user_text", "original_query", "query", "user_question", "question"):
+        v = execution_state.get(k)
+        if isinstance(v, str) and v.strip():
+            fallback_candidates.append(v.strip())
+    for k in ("question", "original_query", "user_question", "query"):
+        v = payload.get(k)
+        if isinstance(v, str) and v.strip():
+            fallback_candidates.append(v.strip())
+
+    def _is_echo(s: str) -> bool:
+        ss = s.strip()
+        if not ss:
+            return True
+        return any(ss == c for c in fallback_candidates)
+
+    # 1) pending_action prompt wins (first-turn prompt fix) BUT avoid echo values
     pending_action = execution_state.get("pending_action")
     if isinstance(pending_action, dict) and bool(pending_action.get("awaiting")):
         for k in (
             "prompt_text",
             "prompt",
             "pending_prompt",
-            "pending_question",
-            "question",
             "message",
             "text",
+            # NOTE: we intentionally keep pending_question/question lower priority because
+            # those are frequently just the original query (echo).
+            "pending_question",
+            "question",
         ):
             v = pending_action.get(k)
             if isinstance(v, str) and v.strip():
-                return v.strip()
+                candidate = v.strip()
+                if not _is_echo(candidate):
+                    return candidate
 
-        # Last resort generic yes/no prompt
+        # If it's a yes/no confirm and we still didn't find a real prompt, emit a generic.
         if str(pending_action.get("type") or "").strip().lower() == "confirm_yes_no":
             return "Please reply **yes** or **no** to continue."
 
-    # 2/3) agent outputs
+    # 2) execution_state.answer.text_markdown (your route now resolves this correctly)
+    ans_state = execution_state.get("answer")
+    if isinstance(ans_state, dict):
+        v = ans_state.get("text_markdown")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+
+    # 3) payload["text"] bridge (your /api route populates this in some setups)
+    v = payload.get("text")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+
+    # 4/5) agent outputs
     agent_outputs = execution_state.get("agent_outputs")
     agent_outputs = agent_outputs if isinstance(agent_outputs, dict) else {}
 
@@ -131,7 +170,7 @@ def _pick_answer_text_markdown(payload: Dict[str, Any]) -> str:
     if isinstance(v, str) and v.strip():
         return v.strip()
 
-    # 4/5) payload answer
+    # 6/7) payload answer
     ans = payload.get("answer")
     if isinstance(ans, dict):
         v = ans.get("text_markdown")
@@ -140,7 +179,7 @@ def _pick_answer_text_markdown(payload: Dict[str, Any]) -> str:
     elif isinstance(ans, str) and ans.strip():
         return ans.strip()
 
-    # 6) refiner dict (sometimes bubbled up top-level)
+    # 8) refiner dict (sometimes bubbled up top-level)
     ref = payload.get("refiner")
     if isinstance(ref, dict):
         for k in ("refined_query", "original_query"):
@@ -148,7 +187,7 @@ def _pick_answer_text_markdown(payload: Dict[str, Any]) -> str:
             if isinstance(v, str) and v.strip():
                 return v.strip()
 
-    # 7) exec_state fallbacks
+    # 9) exec_state fallbacks
     for k in ("raw_user_text", "original_query", "query"):
         v = execution_state.get(k)
         if isinstance(v, str) and v.strip():
@@ -161,6 +200,13 @@ def _pick_used_rag(payload: Dict[str, Any], execution_state: Dict[str, Any]) -> 
     """
     Decide answer.used_rag in a robust way.
     """
+    # Prefer execution_state.answer.used_rag if present
+    ans_state = execution_state.get("answer")
+    if isinstance(ans_state, dict):
+        v = ans_state.get("used_rag")
+        if isinstance(v, bool):
+            return v
+
     # If payload.answer is a dict with used_rag, respect it
     ans = payload.get("answer")
     if isinstance(ans, dict):
@@ -195,6 +241,13 @@ def _pick_sources(payload: Dict[str, Any], execution_state: Dict[str, Any]) -> L
     Prefer already-normalized public sources (answer.sources) if present,
     otherwise fall back to internal execution_state rag_hits.
     """
+    # Prefer execution_state.answer.sources if present
+    ans_state = execution_state.get("answer")
+    if isinstance(ans_state, dict):
+        public_sources = ans_state.get("sources")
+        if isinstance(public_sources, list) and public_sources:
+            return _build_sources_from_public_sources(public_sources)
+
     ans = payload.get("answer")
     if isinstance(ans, dict):
         public_sources = ans.get("sources")
@@ -239,6 +292,8 @@ def _build_classifier_summary(payload: Dict[str, Any]) -> Optional[ClassifierSum
 
 
 def _build_refiner_summary(execution_state: Dict[str, Any]) -> Optional[RefinerSummary]:
+    # refiner is currently returned top-level in your internal payload, but keep this
+    # as exec_state-driven to match existing callers.
     refiner = _safe_get(execution_state, "refiner")
     if not isinstance(refiner, dict):
         return None
@@ -292,10 +347,14 @@ def transform_orchestration_payload_to_query_response(
     if not isinstance(execution_state, dict):
         execution_state = {}
 
-    # 2) Canonical answer (✅ handles pending_action prompting)
+    # 2) Canonical answer (✅ handles pending_action prompting + avoids echo)
     text_markdown = _pick_answer_text_markdown(payload)
     used_rag = _pick_used_rag(payload, execution_state)
     sources = _pick_sources(payload, execution_state)
+
+    # If we STILL somehow have no answer text, fall back to question as last resort.
+    if not isinstance(text_markdown, str) or not text_markdown.strip():
+        text_markdown = _safe_str(question)
 
     answer = AnswerPayload(
         text_markdown=text_markdown,

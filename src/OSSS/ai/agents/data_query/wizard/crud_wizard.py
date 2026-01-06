@@ -1,352 +1,399 @@
+# OSSS/ai/agents/data_query/crud_wizard.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+"""
+CrudWizard (best-practice refactor)
+...
+"""
 
-from OSSS.ai.context import AgentContext
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Literal
+
 from OSSS.ai.observability import get_logger
-from OSSS.ai.agents.data_query.wizard import utils
 
 logger = get_logger(__name__)
 
-# If JSON_PATH lives in utils, wire it through here
-try:
-    JSON_PATH = utils.JSON_PATH
-except AttributeError:
-    JSON_PATH = "$.data"
+WizardStep = Literal["collect_details", "confirm", "execute", "done", "cancelled"]
+
+# -----------------------------------------
+# Result shape (simple, explicit, stable)
+# -----------------------------------------
+
+@dataclass
+class WizardResult:
+    status: Literal["prompt", "execute", "done", "cancelled", "noop"]
+    prompt: Optional[str] = None
+    # Optional: downstream instructions (DataQueryAgent can interpret)
+    plan: Optional[Dict[str, Any]] = None
 
 
-# ---------------------------------------------------------------------------
-# MODULE-LEVEL WIZARD HELPERS (expected by DataQueryAgent)
-#
-# Option B (post-migration / step-only):
-# - CrudWizard reads ONLY wizard_state["step"].
-# - Legacy keys (pending_action/status) are NOT read here anymore.
-# - confirm_table/pending_confirmation are NOT wizard steps; if they appear
-#   in wizard_state["step"], treat as invalid/no-op.
-# - During the migration window, DataQueryAgent (TurnController) is the only
-#   place that heals legacy fields -> wizard_state["step"].
-# ---------------------------------------------------------------------------
+# -----------------------------------------
+# Helpers
+# -----------------------------------------
+
+def _get_wizard(exec_state: Dict[str, Any]) -> Dict[str, Any]:
+    wiz = exec_state.get("wizard")
+    if isinstance(wiz, dict):
+        return wiz
+    wiz = {}
+    exec_state["wizard"] = wiz
+    return wiz
 
 
-def wizard_channel_key(agent_name: str, collection: Optional[str] = None) -> str:
-    """Single logical channel for wizard UX, optionally namespaced by collection."""
-    if collection:
-        return f"{agent_name}:wizard:{collection}"
-    return f"{agent_name}:wizard"
+def _get_step(wiz: Dict[str, Any]) -> str:
+    return str(wiz.get("step") or "").strip().lower()
 
 
-def get_wizard_state(context: AgentContext) -> Dict[str, Any]:
-    """Read wizard state from execution_state."""
-    exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
-    wiz = exec_state.get("wizard") or {}
-    return wiz if isinstance(wiz, dict) else {}
+def _set_step(wiz: Dict[str, Any], step: WizardStep) -> None:
+    wiz["step"] = step
 
 
-def set_wizard_state(context: AgentContext, state: Optional[Dict[str, Any]]) -> None:
-    """Write (or clear) wizard state on execution_state."""
-    exec_state: Dict[str, Any] = getattr(context, "execution_state", {}) or {}
-    if state:
-        exec_state["wizard"] = state
+def _truthy_str(x: Any) -> str:
+    return str(x or "").strip()
+
+
+def _has_table(wiz: Dict[str, Any]) -> bool:
+    return bool(_truthy_str(wiz.get("table_name") or wiz.get("collection")))
+
+
+def _resolve_table(wiz: Dict[str, Any]) -> str:
+    # Keep compatibility with your logs where you set both collection + table_name.
+    t = _truthy_str(wiz.get("table_name"))
+    if t:
+        return t
+    return _truthy_str(wiz.get("collection"))
+
+
+# -----------------------------
+# A) Wizard state shape cleanup
+# -----------------------------
+
+_LEGACY_WIZARD_KEYS = {
+    # old multi-turn confirmation fields we no longer allow in wizard state
+    "confirm_table",
+    "pending_confirmation",
+    "awaiting_confirmation",
+    "pending_question",
+    "pending_yes_no",
+    "confirm_prompt",
+    # sometimes legacy code stored protocol-ish things inside wizard:
+    "pending_action",
+    "pending_action_result",
+}
+
+
+def _cleanup_legacy_wizard_state(exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> None:
+    """
+    A) Enforce single-source-of-truth shapes:
+      - wizard: business-only (step machine + data like table_name/operation/etc.)
+      - protocol: exec_state["pending_action"] / ["pending_action_result"]
+    If legacy wizard keys exist, remove them so we don't accidentally re-enter old flows.
+    """
+    removed: Dict[str, Any] = {}
+    for k in list(wiz.keys()):
+        if k in _LEGACY_WIZARD_KEYS:
+            removed[k] = wiz.pop(k)
+
+    # If some legacy code wrote wizard_state instead of wizard, opportunistically merge
+    # the business-only bits once (and then delete wizard_state).
+    legacy_wiz = exec_state.get("wizard_state")
+    if isinstance(legacy_wiz, dict) and legacy_wiz:
+        # Only bring over business-only fields (never bring confirm/pending bits).
+        for k, v in legacy_wiz.items():
+            if k in _LEGACY_WIZARD_KEYS:
+                continue
+            if k not in wiz:
+                wiz[k] = v
+        exec_state.pop("wizard_state", None)
+
+    if removed:
+        logger.info(
+            "crud_wizard_removed_legacy_wizard_fields",
+            extra={
+                "event": "crud_wizard_removed_legacy_wizard_fields",
+                "removed_keys": sorted(list(removed.keys())),
+            },
+        )
+
+
+def _consume_pending_action_result(exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> bool:
+    """
+    If TurnController produced a one-shot pending_action_result, commit it into wizard state.
+    Returns True if we consumed something.
+    """
+    par = exec_state.get("pending_action_result")
+    if not isinstance(par, dict):
+        return False
+
+    if par.get("type") != "confirm_yes_no":
+        return False
+
+    owner = str(par.get("owner") or "").strip().lower()
+    if owner not in {"data_query", "crud_wizard"}:
+        # Not ours
+        return False
+
+    decision = str(par.get("decision") or "").strip().lower()
+    if decision == "yes":
+        wiz["confirmed"] = True
+    elif decision in {"no", "cancel"}:
+        wiz["confirmed"] = False
     else:
-        exec_state.pop("wizard", None)
-    context.execution_state = exec_state
+        # Unknown: treat as cancel/decline
+        wiz["confirmed"] = False
+
+    # One-shot: remove it so we don't re-consume every run.
+    exec_state.pop("pending_action_result", None)
+
+    # Housekeeping signals
+    exec_state["suppress_history"] = True  # don't record yes/no
+    exec_state["wizard_prompted_this_turn"] = False
+
+    logger.info(
+        "crud_wizard_consumed_pending_action_result",
+        extra={
+            "event": "crud_wizard_consumed_pending_action_result",
+            "decision": decision,
+            "confirmed": wiz.get("confirmed"),
+            "wizard_step": _get_step(wiz),
+        },
+    )
+    return True
 
 
-async def continue_wizard(
-    agent_name: str,
-    context: AgentContext,
-    wizard_state: Dict[str, Any],
-    user_text: str,
-) -> AgentContext:
+def _ensure_confirm_pending_action(exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> None:
     """
-    Backwards-compatible entrypoint used by DataQueryAgent.
+    Ensure we have an awaiting confirm_yes_no contract. Idempotent.
     """
-    wizard = CrudWizard(agent_name=agent_name, context=context, wizard_state=wizard_state)
-    return await wizard.handle(user_text)
+    pa = exec_state.get("pending_action")
+    if isinstance(pa, dict) and pa.get("type") == "confirm_yes_no" and bool(pa.get("awaiting")):
+        return
+
+    original_query = _truthy_str(
+        wiz.get("original_query")
+        or exec_state.get("original_query")
+        or exec_state.get("query")
+    )
+    table_name = _resolve_table(wiz)
+
+    exec_state["pending_action"] = {
+        "type": "confirm_yes_no",
+        "owner": "data_query",
+        "awaiting": True,
+        "pending_question": original_query or "query",
+        "resume_route": "data_query",
+        "resume_pattern": "data_query",
+        "context": {
+            "wizard_step": "confirm",
+            "operation": wiz.get("operation"),
+            "table_name": table_name,
+            "collection": wiz.get("collection"),
+            "original_query": original_query,
+        },
+    }
+
+    # Mark this as a prompt turn: planner/router should short-circuit appropriately.
+    exec_state["wizard_prompted_this_turn"] = True
+    exec_state["suppress_history"] = True  # keep prompts out of "chat history" if you prefer
+
+    logger.info(
+        "crud_wizard_set_pending_action_confirm",
+        extra={
+            "event": "crud_wizard_set_pending_action_confirm",
+            "wizard_step": _get_step(wiz),
+            "table_name": table_name,
+            "has_existing_pending_action": isinstance(pa, dict),
+        },
+    )
 
 
-CANCEL_HINT = (
-    "\n\nYou can type **cancel** at any time to end this workflow "
-    "and return to a blank prompt."
-)
+def _build_execute_plan(exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deterministic instructions for downstream (DataQueryAgent / CRUD executor).
+    Keep this stable: it's your best friend for debugging.
+    """
+    return {
+        "type": "crud_wizard_execute",
+        "operation": _truthy_str(wiz.get("operation") or "read").lower(),
+        "table_name": _resolve_table(wiz),
+        "collection": _truthy_str(wiz.get("collection") or _resolve_table(wiz)),
+        "entity_meta": wiz.get("entity_meta") if isinstance(wiz.get("entity_meta"), dict) else {},
+        "route_info": wiz.get("route_info") if isinstance(wiz.get("route_info"), dict) else {},
+        "base_url": _truthy_str(wiz.get("base_url") or exec_state.get("base_url") or "http://app:8000"),
+        "original_query": _truthy_str(
+            wiz.get("original_query")
+            or exec_state.get("original_query")
+            or exec_state.get("query")
+        ),
+        # any prior user detail reply you saved in turn_normalizer
+        "wizard_user_reply": _truthy_str(
+            exec_state.get("wizard_user_reply_text") or exec_state.get("wizard_user_reply")
+        ),
+    }
 
+
+def _unlock_route_after_wizard_done(exec_state: Dict[str, Any]) -> None:
+    """
+    C) State hygiene: when the wizard finishes (step == done), do not keep the route locked.
+    This prevents future turns from being forced into data_query forever.
+    """
+    exec_state["wizard_in_progress"] = False
+    exec_state["route_locked"] = False
+    exec_state["route_reason"] = "wizard_done"
+    exec_state.pop("route_key", None)
+
+
+# -----------------------------------------
+# The Wizard
+# -----------------------------------------
 
 class CrudWizard:
     """
-    CRUD wizard stub for read, create, update, and delete.
-
-    Option B (post-migration / step-only):
-      - confirm_table / pending_confirmation are NOT wizard steps.
-      - Wizard reads ONLY wizard_state["step"].
-      - Wizard only handles real steps like collect_details.
+    Public API: run(exec_state) -> WizardResult + mutates exec_state["wizard"] deterministically.
     """
 
-    CANCEL_TOKENS = {
-        "cancel",
-        "stop",
-        "never mind",
-        "nevermind",
-        "abort",
-        "exit",
-        "quit",
-    }
+    def run(self, exec_state: Dict[str, Any]) -> WizardResult:
+        wiz = _get_wizard(exec_state)
 
-    INVALID_STATES = {"confirm_table", "pending_confirmation"}
+        # A) Enforce state shape rules (single-source-of-truth)
+        _cleanup_legacy_wizard_state(exec_state, wiz)
 
-    def __init__(
-        self,
-        agent_name: str,
-        context: AgentContext,
-        wizard_state: Dict[str, Any],
-    ) -> None:
-        self.agent_name = agent_name
-        self.context = context
-        self.state: Dict[str, Any] = wizard_state or {}
+        # Default step if missing
+        step = _get_step(wiz)
+        if not step:
+            _set_step(wiz, "collect_details")
+            step = "collect_details"
 
-        self.collection: Optional[str] = self.state.get("collection")
-        self.channel_key: str = wizard_channel_key(agent_name, self.collection)
+        # Always consume any one-shot protocol decision first
+        _consume_pending_action_result(exec_state, wiz)
 
-        operation_raw = str(self.state.get("operation") or "read").strip().lower()
-        self.operation = "read" if operation_raw == "query" else operation_raw
+        # Route lock invariants (wizard implies we are in data_query flow)
+        exec_state["route"] = "data_query"
+        exec_state["route_locked"] = True
+        exec_state["graph_pattern"] = "data_query"
+        exec_state["entry_point"] = exec_state.get("entry_point") or "data_query"
+        exec_state["wizard_in_progress"] = True  # optional but consistent with Patch C hygiene
 
-    # ---------------- normalization ----------------
+        # Step machine (idempotent)
+        if step == "collect_details":
+            return self._step_collect_details(exec_state, wiz)
 
-    def _canon(self, s: str) -> str:
-        t = (s or "").strip().lower()
-        return t.strip(" \t\r\n.!?;,:()[]{}\"'")
+        if step == "confirm":
+            return self._step_confirm(exec_state, wiz)
 
-    # ---------------- protocol helpers ----------------
+        if step == "execute":
+            return self._step_execute(exec_state, wiz)
 
-    def _get_exec_state(self) -> Dict[str, Any]:
-        return getattr(self.context, "execution_state", {}) or {}
+        if step == "done":
+            # ✅ Patch C: in case we re-enter after completion, ensure routing is unlocked.
+            _unlock_route_after_wizard_done(exec_state)
+            return WizardResult(status="done")
 
-    def _clear_pending_action_contract(self, exec_state: Dict[str, Any], *, reason: str) -> None:
-        """
-        Safety net: clear protocol-level pending action contract.
+        if step == "cancelled":
+            exec_state["wizard_bailed"] = True
+            exec_state["wizard_bail_reason"] = exec_state.get("wizard_bail_reason") or "wizard_cancelled"
+            # also unlock route on cancellation so we don't “stick”
+            _unlock_route_after_wizard_done(exec_state)
+            return WizardResult(status="cancelled", prompt="Cancelled.")
 
-        IMPORTANT:
-        - DO NOT delete pending_action.
-        - Keep it with awaiting=False so merges cannot resurrect it.
-        """
-        pa = exec_state.get("pending_action")
-        if isinstance(pa, dict):
-            pa_done = dict(pa)
-            pa_done["awaiting"] = False
-            pa_done["cleared_reason"] = reason
-            exec_state["pending_action_last"] = pa_done
-            exec_state["pending_action"] = pa_done
-
-        par = exec_state.get("pending_action_result")
-        if isinstance(par, dict):
-            owner = str(par.get("owner") or "").strip().lower()
-            if owner == str(self.agent_name or "").strip().lower():
-                exec_state.pop("pending_action_result", None)
-
-    # ---------------- step sourcing ----------------
-
-    def _get_pending_step(self) -> str:
-        step = self.state.get("step") if isinstance(self.state, dict) else ""
-        return str(step or "").strip().lower()
-
-    # ---------------- entrypoint ----------------
-
-    async def handle(self, user_text: str) -> AgentContext:
-        answer_raw = (user_text or "").strip()
-        answer_lower = self._canon(answer_raw)
-
-        # Global cancel
-        if self._is_cancel(answer_lower):
-            return self._handle_cancel(answer_raw)
-
-        pending = self._get_pending_step()
-
-        if pending in self.INVALID_STATES:
-            logger.warning(
-                "[wizard] invalid wizard_state.step (protocol-only); no-op",
-                extra={
-                    "event": "wizard_invalid_state",
-                    "pending": pending,
-                    "collection": self.collection,
-                },
-            )
-            return self.context
-
-        if pending == "collect_details":
-            return self._handle_collect_details(answer_raw)
-
-        return self._handle_unknown(pending=pending)
-
-    # ---------------- helpers ----------------
-
-    @classmethod
-    def _is_cancel(cls, answer_lower: str) -> bool:
-        return (answer_lower or "").strip().lower() in cls.CANCEL_TOKENS
-
-    # ---------------------------------------------------------------------
-    # CANCEL
-    # ---------------------------------------------------------------------
-
-    def _handle_cancel(self, answer_raw: str) -> AgentContext:
-        logger.info(
-            "[wizard] user cancelled wizard",
-            extra={"event": "wizard_user_cancel"},
-        )
-
-        exec_state = self._get_exec_state()
-        exec_state["wizard_cancelled"] = True
-        exec_state["wizard_bailed"] = True
-        exec_state["wizard_bail_reason"] = "user_cancelled_wizard"
-
-        self._clear_pending_action_contract(exec_state, reason="wizard_cancelled")
-        exec_state["suppress_history"] = True
-
-        cancel_message = "Okay — I cancelled this CRUD wizard. No changes were made."
-        exec_state["final"] = cancel_message
-        self.context.execution_state = exec_state
-
-        set_wizard_state(self.context, None)
-
-        self.context.add_agent_output(
-            agent_name=self.channel_key,
-            logical_name=self.agent_name,
-            content=cancel_message,
-            role="assistant",
-            meta={"action": "wizard", "step": "cancelled"},
-            action="wizard_cancelled",
-            intent="action",
-        )
-        return self.context
-
-    # ---------------------------------------------------------------------
-    # ✅ DETAILS COLLECTION (PATCH APPLIED HERE)
-    # ---------------------------------------------------------------------
-
-    def _handle_collect_details(self, answer_raw: str) -> AgentContext:
-        answer = (answer_raw or "").strip()
-
-        if not answer:
-            exec_state = getattr(self.context, "execution_state", {}) or {}
-
-            # ✅ MUST NOT bail on empty input
-            exec_state["wizard_bailed"] = False
-            exec_state["wizard_in_progress"] = True
-            exec_state["wizard_prompted_this_turn"] = True
-
-            prompt = "What details should I use? (filters, fields, limits, etc.)" + CANCEL_HINT
-
-            # Use the same user-facing surface your agent/router expects
-            exec_state["final"] = prompt
-            self.context.execution_state = exec_state
-
-            # (optional) emit output through your normal UX channel
-            try:
-                # If the DataQueryAgent passed a compatible hook in some environments
-                set_user_message = exec_state.get("wizard_set_user_message")  # optional
-                if callable(set_user_message):
-                    set_user_message(self.context, prompt, prompted=True)
-            except Exception:
-                pass
-
-            # Always emit wizard channel output (keeps UX consistent)
-            try:
-                self.context.add_agent_output(
-                    agent_name=self.channel_key,
-                    logical_name=self.agent_name,
-                    content=prompt,
-                    role="assistant",
-                    meta={
-                        "action": "wizard",
-                        "step": "collect_details",
-                        "collection": self.collection,
-                        "operation": self.operation,
-                    },
-                    action="wizard_prompt",
-                    intent="action",
-                )
-            except Exception:
-                pass
-
-            return self.context
-
-        # ---------------- existing behavior below ----------------
-
-        exec_state = self._get_exec_state()
-
-        table_name = (
-            self.state.get("table_name")
-            or (self.state.get("entity_meta") or {}).get("table")
-            or self.collection
-            or "unknown_table"
-        )
-        entity_meta: Dict[str, Any] = self.state.get("entity_meta") or {}
-
-        payload_stub: Dict[str, Any] = {
-            "ok": True,
-            "source": "wizard_stub",
-            "operation": self.operation,
-            "collection": self.collection,
-            "table_name": table_name,
-            "entity": entity_meta,
-            "base_url": self.state.get("base_url"),
-            "route": self.state.get("route_info") or {},
-            "details_text": answer,
-        }
-
-        exec_state[f"{self.collection}_{self.operation}_wizard_stub"] = payload_stub
-        self.context.execution_state = exec_state
-
-        stub_message = (
-            f"[STUB] I’ve captured your **{self.operation.upper()}** request for `{table_name}`.\n\n"
-            f"> {answer}\n\n"
-            "In a full implementation, this would now be translated into a backend call."
-        ) + CANCEL_HINT
-
-        self.context.add_agent_output(
-            agent_name=self.channel_key,
-            logical_name=self.agent_name,
-            content=stub_message,
-            role="assistant",
-            meta=payload_stub,
-            action=self.operation,
-            intent="action",
-        )
-
-        # Wizard completes
-        self._clear_pending_action_contract(exec_state, reason="wizard_completed")
-        self.context.execution_state = exec_state
-        set_wizard_state(self.context, None)
-
-        return self.context
-
-    # ---------------------------------------------------------------------
-    # UNKNOWN STEP
-    # ---------------------------------------------------------------------
-
-    def _handle_unknown(self, *, pending: str) -> AgentContext:
+        # Unknown step: fail safe to collect_details
         logger.warning(
-            "[wizard] unknown wizard step; cancelling",
-            extra={"pending": pending},
+            "crud_wizard_unknown_step_reset",
+            extra={"event": "crud_wizard_unknown_step_reset", "step": step},
+        )
+        _set_step(wiz, "collect_details")
+        return self._step_collect_details(exec_state, wiz)
+
+    # -------------------------
+    # Steps
+    # -------------------------
+
+    def _step_collect_details(self, exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> WizardResult:
+        if not _has_table(wiz):
+            reply = _truthy_str(exec_state.get("wizard_user_reply_text") or exec_state.get("wizard_user_reply"))
+            if reply:
+                wiz["table_name"] = reply
+                wiz["collection"] = reply
+
+        if not _has_table(wiz):
+            exec_state["wizard_prompted_this_turn"] = True
+            exec_state["suppress_history"] = False
+            prompt = "Which table/collection should I use? (e.g., `consent_types`)"
+            return WizardResult(status="prompt", prompt=prompt)
+
+        _set_step(wiz, "confirm")
+        wiz.setdefault("confirmed", None)
+
+        logger.info(
+            "crud_wizard_collect_details_complete",
+            extra={
+                "event": "crud_wizard_collect_details_complete",
+                "table_name": _resolve_table(wiz),
+                "next_step": "confirm",
+            },
         )
 
-        exec_state = self._get_exec_state()
-        exec_state["wizard_bailed"] = True
-        exec_state["wizard_bail_reason"] = "unknown_wizard_step"
+        return self._step_confirm(exec_state, wiz)
 
-        self._clear_pending_action_contract(exec_state, reason="wizard_unknown_step")
-        self.context.execution_state = exec_state
+    def _step_confirm(self, exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> WizardResult:
+        confirmed = wiz.get("confirmed", None)
 
-        set_wizard_state(self.context, None)
+        if confirmed is True:
+            _set_step(wiz, "execute")
+            logger.info(
+                "crud_wizard_confirm_yes_advance",
+                extra={"event": "crud_wizard_confirm_yes_advance", "next_step": "execute"},
+            )
+            return self._step_execute(exec_state, wiz)
 
-        self.context.add_agent_output(
-            agent_name=self.channel_key,
-            logical_name=self.agent_name,
-            content=(
-                "Sorry, I lost track of this wizard’s state, so I cancelled it. "
-                "You can start again with a new query."
-            ),
-            role="assistant",
-            meta={"action": "wizard", "step": "error"},
-            action="wizard_error",
-            intent="action",
+        if confirmed is False:
+            _set_step(wiz, "cancelled")
+            exec_state["wizard_bailed"] = True
+            exec_state["wizard_bail_reason"] = exec_state.get("wizard_bail_reason") or "user_declined_confirm"
+            logger.info(
+                "crud_wizard_confirm_no_cancel",
+                extra={"event": "crud_wizard_confirm_no_cancel"},
+            )
+            # ✅ Patch C hygiene on cancel
+            _unlock_route_after_wizard_done(exec_state)
+            return WizardResult(status="cancelled", prompt="Okay — cancelled.")
+
+        _ensure_confirm_pending_action(exec_state, wiz)
+
+        table_name = _resolve_table(wiz)
+        op = _truthy_str(wiz.get("operation") or "read").lower()
+
+        if op == "read":
+            prompt = f"Confirm: run query on `{table_name}`? Reply **yes** or **no**."
+        else:
+            prompt = f"Confirm: perform `{op}` on `{table_name}`? Reply **yes** or **no**."
+
+        return WizardResult(status="prompt", prompt=prompt)
+
+    def _step_execute(self, exec_state: Dict[str, Any], wiz: Dict[str, Any]) -> WizardResult:
+        if wiz.get("confirmed") is not True:
+            _set_step(wiz, "confirm")
+            return self._step_confirm(exec_state, wiz)
+
+        plan = _build_execute_plan(exec_state, wiz)
+
+        # Mark done optimistically.
+        _set_step(wiz, "done")
+
+        # ✅ Patch C: route unlock + wizard completion hygiene
+        _unlock_route_after_wizard_done(exec_state)
+
+        logger.info(
+            "crud_wizard_execute_ready",
+            extra={
+                "event": "crud_wizard_execute_ready",
+                "operation": plan.get("operation"),
+                "table_name": plan.get("table_name"),
+                "next_step": "done",
+            },
         )
-        return self.context
+
+        return WizardResult(status="execute", plan=plan)
+
+
+crud_wizard = CrudWizard()

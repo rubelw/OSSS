@@ -5,8 +5,14 @@ from typing import Any, Dict
 
 from OSSS.ai.observability import get_logger
 from OSSS.ai.orchestration.state_schemas import OSSSState
-
 from OSSS.ai.orchestration.routers.registry import RouterRegistry
+
+# ✅ Best-practice: routers must ONLY treat pending_action as pending when awaiting=True
+from OSSS.ai.orchestration.protocol.pending_action import (
+    has_awaiting_pending_action,
+    get_pending_action_type,
+    get_pending_action_owner,
+)
 
 logger = get_logger(__name__)
 
@@ -79,34 +85,61 @@ def _is_crud_from_wizard(wiz: Dict[str, Any]) -> bool:
 
 def _has_pending_action_awaiting(exec_state: Dict[str, Any], *, owner: str) -> bool:
     """
-    ✅ Protocol-level short-circuit:
-    If we're awaiting a user reply for a given owner, routers must stop the graph.
+    ✅ Best-practice (protocol contract):
+    A pending action is pending ONLY when awaiting=True (migration-safe predicate).
 
-    IMPORTANT:
-    - awaiting must be STRICTLY True (not truthy), because some stores/serializers
-      can round-trip booleans as strings ("false") which are truthy in Python.
+    Routers must NOT treat mere presence of exec_state["pending_action"] as pending,
+    because the turn controller intentionally keeps the object around after clearing
+    (awaiting=False) to prevent resurrection during merges.
     """
-    pa = exec_state.get("pending_action")
-    if not isinstance(pa, dict):
+    if not has_awaiting_pending_action(exec_state):
         return False
 
-    # ✅ STRICT check (matches your contract everywhere else)
-    awaiting = (pa.get("awaiting") is True)
-    pa_owner = str(pa.get("owner") or "").strip().lower()
-    pa_type = str(pa.get("type") or "").strip().lower()
-
-    if not awaiting:
-        return False
-    if pa_owner != str(owner or "").strip().lower():
+    # Optional: strict by owner/type so unrelated protocol owners don't block this edge.
+    pa_owner = (get_pending_action_owner(exec_state) or "").strip().lower()
+    if pa_owner != (owner or "").strip().lower():
         return False
 
-    # We only short-circuit for interactive protocol steps (confirmations, etc.)
-    # (Future-safe: if you add more protocol types, keep them here.)
-    if pa_type in {"confirm_yes_no", "confirm"}:
+    pa_type = (get_pending_action_type(exec_state) or "").strip().lower()
+    # Current protocol type set (future-safe: allow empty type as interactive)
+    if pa_type in {"confirm_yes_no"}:
+        return True
+    if not pa_type:
+        return True
+    return False
+
+
+def _has_user_facing_data_query_answer(exec_state: Dict[str, Any]) -> bool:
+    """
+    True if data_query already produced a user-facing answer/result.
+
+    ✅ Intent:
+      - Prevent running FinalAgent on deterministic data_query turns (especially turn-2)
+      - Treat structured data_query results as "complete enough" to END
+
+    NOTE:
+      - We keep this conservative and only check stable, canonical-ish keys.
+    """
+    # Canonical answer contract
+    ans = exec_state.get("answer")
+    if isinstance(ans, dict):
+        tm = ans.get("text_markdown")
+        if isinstance(tm, str) and tm.strip():
+            return True
+
+    # Compatibility bridges some pipelines/transformers use
+    for k in ("text", "answer_text_markdown", "final_text_markdown", "final_markdown"):
+        v = exec_state.get(k)
+        if isinstance(v, str) and v.strip():
+            return True
+
+    # Structured data_query outputs
+    if exec_state.get("data_query_result") is not None:
         return True
 
-    # If type is missing but awaiting+owner is set, still treat as interactive.
-    if not pa_type:
+    # Sometimes the wizard stores a response-ish object under response/result
+    resp = exec_state.get("response")
+    if isinstance(resp, dict) and resp:
         return True
 
     return False
@@ -207,20 +240,21 @@ def router_refiner_query_or_reflect(state: OSSSState) -> str:
 
 
 def router_refiner_query_or_end(state: OSSSState) -> str:
-    """
-    Returns (LEGAL BRANCH KEYS ONLY):
-      - "data_query" if query prefix OR should_run_data_query
-      - "final" otherwise
-
-    IMPORTANT:
-      - Routers MUST NOT interpret yes/no wizard turns. That contract is handled
-        in TurnNormalizer (planning/compile-time), not runtime branching.
-      - Routers MUST ignore route_locked/route (planning inputs), and only choose
-        among compiled branch keys.
-    """
     try:
+        exec_state = _get_exec_state(state)
+        wiz = _get_wizard(exec_state)
+
         q = _get_refined_query_from_state(state)
-        ql = q.lower()
+        ql = q.lower().strip()
+
+        # ✅ NEW: If wizard is done and user sends bare yes/no, treat as ack and END.
+        # Prevents refiner->final from hallucinating an "answer" to "yes".
+        if wiz.get("step") == "done" and ql in {"yes", "y", "no", "n"}:
+            logger.info(
+                "router_refiner_query_or_end_ack_after_wizard_done",
+                extra={"event": "router_refiner_query_or_end_ack_after_wizard_done", "ql": ql},
+            )
+            return _safe_return("END", _ALLOWED_END, fallback="final")
 
         if ql.startswith(
             ("query ", "select ", "read ", "create ", "insert ", "update ", "modify ", "delete ", "upsert ")
@@ -243,6 +277,7 @@ def router_refiner_query_or_end(state: OSSSState) -> str:
     except Exception as exc:
         logger.error("Error in router_refiner_query_or_end", exc_info=True, extra={"error": str(exc)})
         return "final"
+
 
 
 # -----------------------------------------------------------------------------
@@ -321,59 +356,75 @@ def _get_refined_query_from_state(state: OSSSState) -> str:
 
 def route_after_data_query(state: OSSSState) -> str:
     """
-    For your graph-patterns.json 'data_query' pattern:
-      - if protocol is awaiting a user reply for data_query -> "final"  (STOP-ish: show prompt, then end)
-      - if data_query prompted user for wizard input this turn -> "final" (STOP-ish: show prompt, then end)
-      - elif wizard_bailed -> "END"                                     (STOP)
-      - elif CRUD -> "historian"
-      - else -> "final"
+    For graph-patterns.json 'data_query' pattern (legal keys: {"historian","final","END"}):
 
-    ✅ Patch C (router hardening):
-      - Check wizard_prompted_this_turn BEFORE wizard_bailed.
-        This prevents accidental “prompt + bail” states from being interpreted as bail.
+    ✅ Correctness goals:
+      - If protocol is awaiting user input (e.g. confirm_yes_no), DO NOT run FinalAgent.
+        Return END and let the API surface the prompt (query.py synthesizes prompt).
+      - If the wizard prompted the user this turn, DO NOT run FinalAgent.
+        Return END and let the API surface the prompt.
+      - If wizard bailed, END.
+      - If CRUD operation, route to historian (to narrate/validate the change).
+      - Otherwise (read/query): if data_query already produced an answer/result, END (avoid FinalAgent),
+        else allow final as a fallback.
 
-    ✅ Patch D (prompt delivery fix):
-      - When we short-circuit for pending_action awaiting OR wizard_prompted_this_turn,
-        route to "final" (not END) so the client actually receives the prompt.
+    ✅ Best-practice:
+      - Pending-action gating uses has_awaiting_pending_action() predicate
+        (NOT presence checks).
+      - Router decisions are *pure* (no state mutation).
     """
     try:
         exec_state = _get_exec_state(state)
 
         # ✅ HARD STOP (protocol): awaiting a yes/no (or other protocol reply)
-        # IMPORTANT: route to FINAL so the user sees the prompt.
         if _has_pending_action_awaiting(exec_state, owner="data_query"):
-            exec_state["suppress_history"] = True
             logger.info(
-                "route_after_data_query_short_circuit_pending_action_to_final",
-                extra={"event": "route_after_data_query_short_circuit_pending_action_to_final"},
-            )
-            return _safe_return("final", _ALLOWED_AFTER_DQ, fallback="final")
-
-        # ✅ If we prompted this turn, route to FINAL so the prompt is returned to the client.
-        if _truthy(exec_state.get("wizard_prompted_this_turn")):
-            exec_state["suppress_history"] = True
-            logger.info(
-                "route_after_data_query_short_circuit_wizard_prompted_this_turn_to_final",
-                extra={"event": "route_after_data_query_short_circuit_wizard_prompted_this_turn_to_final"},
-            )
-            return _safe_return("final", _ALLOWED_AFTER_DQ, fallback="final")
-
-        # ✅ Only after prompt check: bail short-circuit
-        if _wizard_bailed(exec_state):
-            logger.info(
-                "route_after_data_query_short_circuit_wizard_bailed",
-                extra={"event": "route_after_data_query_short_circuit_wizard_bailed"},
+                "route_after_data_query_end_pending_action_awaiting",
+                extra={
+                    "event": "route_after_data_query_end_pending_action_awaiting",
+                    "pending_action_type": get_pending_action_type(exec_state),
+                    "pending_action_owner": get_pending_action_owner(exec_state),
+                },
             )
             return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
 
+        # ✅ If we prompted this turn, END (API returns prompt text)
+        if _truthy(exec_state.get("wizard_prompted_this_turn")):
+            logger.info(
+                "route_after_data_query_end_wizard_prompted_this_turn",
+                extra={"event": "route_after_data_query_end_wizard_prompted_this_turn"},
+            )
+            return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
+
+        # ✅ Bail short-circuit
+        if _wizard_bailed(exec_state):
+            logger.info(
+                "route_after_data_query_end_wizard_bailed",
+                extra={"event": "route_after_data_query_end_wizard_bailed"},
+            )
+            return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
+
+        # ✅ CRUD: let historian narrate / reconcile changes
         wiz = _get_wizard(exec_state)
         if _is_crud_from_wizard(wiz):
             return _safe_return("historian", _ALLOWED_AFTER_DQ, fallback="final")
 
+        # ✅ Read/query: if data_query already produced a user-facing answer/result, END.
+        # This is the critical fix for "turn 2 still going to final".
+        if _has_user_facing_data_query_answer(exec_state):
+            logger.info(
+                "route_after_data_query_end_answer_present",
+                extra={"event": "route_after_data_query_end_answer_present"},
+            )
+            return _safe_return("END", _ALLOWED_AFTER_DQ, fallback="END")
+
+        # Fallback: allow final (should be rare once data_query always populates answer/result)
         return _safe_return("final", _ALLOWED_AFTER_DQ, fallback="final")
+
     except Exception as exc:
         logger.error("Error in route_after_data_query", exc_info=True, extra={"error": str(exc)})
         return "final"
+
 
 # -----------------------------------------------------------------------------
 # Registry bootstrap
@@ -418,7 +469,7 @@ def build_default_router_registry() -> RouterRegistry:
     reg.register(
         "route_after_data_query",
         route_after_data_query,
-        description="data_query -> historian/final based on wizard bail + CRUD signals",
+        description="data_query -> historian/final/END based on wizard + answer presence",
     )
 
     logger.debug(

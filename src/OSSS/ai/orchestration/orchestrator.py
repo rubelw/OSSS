@@ -1,3 +1,4 @@
+# OSSS/ai/orchestration/orchestrator.py
 from __future__ import annotations
 
 """
@@ -60,6 +61,7 @@ from OSSS.ai.orchestration.state_schemas import (
 # ✅ Planner + plan type
 from OSSS.ai.orchestration.planning.defaults import build_default_planner
 from OSSS.ai.orchestration.planning.plan import ExecutionPlan
+
 # Existing (optional) enhanced routing/optimizer
 from OSSS.ai.routing import (
     OptimizationStrategy,
@@ -139,18 +141,29 @@ def _canonicalize_agent_list(raw_agents: Any) -> list[str]:
     return out
 
 
-def _normalize_agents_superset(raw: Any) -> list[str]:
+def _normalize_agents_for_entry_point(raw: Any, *, entry_point: str) -> list[str]:
     """
-    Superset safety invariant:
-    - Ensure 'refiner' exists (first).
-    - Ensure 'final' exists (last).
-    - Preserve other agent names as provided (deduped).
+    ✅ FIX: DO NOT force 'refiner' for wizard/collect_details fast-path.
+
+    Rules:
+    - Always ensure 'final' exists (last).
+    - If entry_point == 'refiner': ensure 'refiner' exists (first).
+    - If entry_point != 'refiner': DO NOT inject 'refiner' (planner may be intentionally skipping it).
+    - Preserve other agent names, deduped, and ensure entry_point is present and first.
     """
+    ep = str(entry_point or "").strip().lower() or "refiner"
     agents = _canonicalize_agent_list(raw)
 
-    agents = [a for a in agents if a != "refiner"]
-    agents.insert(0, "refiner")
+    # Ensure entry_point is present and first
+    agents = [a for a in agents if a != ep]
+    agents.insert(0, ep)
 
+    # If entry point is refiner, ensure refiner stays first (already)
+    if ep == "refiner":
+        agents = [a for a in agents if a != "refiner"]
+        agents.insert(0, "refiner")
+
+    # Always ensure final is last
     agents = [a for a in agents if a != "final"]
     agents.append("final")
 
@@ -191,10 +204,16 @@ def _canonicalize_plan_for_compile(
     *,
     pattern: str,
     agents: list[str],
+    entry_point: str,
+    route: Optional[str],
+    route_locked: bool,
 ) -> Any:
     """
     Ensure the plan object handed to GraphFactory.compile() matches the authoritative
     execution_state["execution_plan"] (pattern is canonical in Fix 1).
+
+    ✅ FIX: also canonicalize entry_point/route fields so GraphFactory and routers
+    start where the planner intended (e.g., wizard collect_details starts at data_query).
     """
     p = plan.normalized() if hasattr(plan, "normalized") else plan
 
@@ -204,10 +223,22 @@ def _canonicalize_plan_for_compile(
             kwargs["pattern"] = pattern
         if hasattr(p, "graph_pattern"):
             kwargs["graph_pattern"] = pattern
+
         if hasattr(p, "agents"):
             kwargs["agents"] = list(agents)
         if hasattr(p, "agents_to_run"):
             kwargs["agents_to_run"] = list(agents)
+
+        if hasattr(p, "entry_point"):
+            kwargs["entry_point"] = entry_point
+        if hasattr(p, "chosen_target"):
+            kwargs["chosen_target"] = entry_point  # legacy consumers
+
+        if hasattr(p, "route"):
+            kwargs["route"] = route
+        if hasattr(p, "route_locked"):
+            kwargs["route_locked"] = bool(route_locked)
+
         try:
             return replace(p, **kwargs)
         except Exception:
@@ -218,10 +249,21 @@ def _canonicalize_plan_for_compile(
             setattr(p, "pattern", pattern)
         if hasattr(p, "graph_pattern"):
             setattr(p, "graph_pattern", pattern)
+
         if hasattr(p, "agents"):
             setattr(p, "agents", list(agents))
         if hasattr(p, "agents_to_run"):
             setattr(p, "agents_to_run", list(agents))
+
+        if hasattr(p, "entry_point"):
+            setattr(p, "entry_point", entry_point)
+        if hasattr(p, "chosen_target"):
+            setattr(p, "chosen_target", entry_point)
+
+        if hasattr(p, "route"):
+            setattr(p, "route", route)
+        if hasattr(p, "route_locked"):
+            setattr(p, "route_locked", bool(route_locked))
     except Exception:
         pass
 
@@ -361,7 +403,8 @@ class LangGraphOrchestrator:
 
         self._compiled_graph = None
         # Fix 1: cache key includes compile_variant
-        self._compiled_graph_key: Optional[tuple[str, str, bool, bool]] = None  # (pattern, variant, checkpoints, cache)
+        self._compiled_graph_key: Optional[
+            tuple[str, str, str, bool, bool]] = None  # (pattern, variant, entry_point, checkpoints, cache)
 
         self.use_enhanced_routing = use_enhanced_routing
         self.optimization_strategy = optimization_strategy
@@ -568,16 +611,15 @@ class LangGraphOrchestrator:
         )
         return deduped
 
-
     # ---------------------------------------------------------------------
     # Graph building (Fix 1)
     # ---------------------------------------------------------------------
 
     async def _get_compiled_graph_from_plan(
-        self,
-        *,
-        plan: ExecutionPlan,
-        execution_state: Optional[Dict[str, Any]] = None,
+            self,
+            *,
+            plan: ExecutionPlan,
+            execution_state: Optional[Dict[str, Any]] = None,
     ) -> Any:
         exec_state = execution_state or {}
 
@@ -598,8 +640,16 @@ class LangGraphOrchestrator:
             or self.graph_pattern
         )
 
-        # agents are informational; still enforce superset safety ordering
-        ep_agents = _normalize_agents_superset(ep.get("agents") or getattr(plan, "agents_to_run", None) or getattr(plan, "agents", None))
+        entry_point = str(
+            ep.get("entry_point")
+            or getattr(plan, "entry_point", None)
+            or exec_state.get("entry_point")
+            or "refiner"
+        ).strip().lower() or "refiner"
+
+        # ✅ FIX: do not force 'refiner' when planner chose entry_point='data_query'
+        ep_agents_raw = ep.get("agents") or getattr(plan, "agents_to_run", None) or getattr(plan, "agents", None)
+        ep_agents = _normalize_agents_for_entry_point(ep_agents_raw, entry_point=entry_point)
 
         # Fix 1: compile_variant drives superset compilation (NOT pattern)
         exec_cfg = exec_state.get("execution_config")
@@ -608,7 +658,8 @@ class LangGraphOrchestrator:
             ep.get("compile_variant") or exec_cfg_variant or _SUPERSET_COMPILE_VARIANT
         ).strip() or _SUPERSET_COMPILE_VARIANT
 
-        key = (pattern, compile_variant, bool(self.enable_checkpoints), bool(cache_enabled))
+        # ✅ Fix 1: cache key MUST include entry_point (compiled graphs bake it in)
+        key = (pattern, compile_variant, entry_point, bool(self.enable_checkpoints), bool(cache_enabled))
 
         if self._compiled_graph is None or self._compiled_graph_key != key:
             self._compiled_graph = None
@@ -622,14 +673,23 @@ class LangGraphOrchestrator:
                     "cache_enabled": cache_enabled,
                     "checkpoints_enabled": bool(self.enable_checkpoints),
                     "ep_agents": ep_agents,
+                    "entry_point": entry_point,
                     "mode": OPTION_MODE,
                 },
             )
+
+            route = ep.get("route") or getattr(plan, "route", None) or exec_state.get("route")
+            route = str(route).strip().lower() if route else None
+            route_locked = bool(
+                ep.get("route_locked") if "route_locked" in ep else getattr(plan, "route_locked", False))
 
             plan_for_compile = _canonicalize_plan_for_compile(
                 plan,
                 pattern=pattern,
                 agents=ep_agents,
+                entry_point=entry_point,
+                route=route,
+                route_locked=route_locked,
             )
 
             self._compiled_graph = self.graph_factory.compile(
@@ -649,6 +709,7 @@ class LangGraphOrchestrator:
                     "compile_variant": compile_variant,
                     "cache_enabled": cache_enabled,
                     "checkpoints_enabled": bool(self.enable_checkpoints),
+                    "entry_point": entry_point,
                     "mode": OPTION_MODE,
                 },
             )
@@ -766,22 +827,32 @@ class LangGraphOrchestrator:
             plan: ExecutionPlan = self.planner.plan(exec_state=exec_state, request=request)  # type: ignore[assignment]
 
             graph_pattern = _require_canonical_pattern(
-                getattr(plan, "graph_pattern", None) or getattr(plan, "pattern", None) or config.get("graph_pattern") or self.graph_pattern
+                getattr(plan, "graph_pattern", None)
+                or getattr(plan, "pattern", None)
+                or config.get("graph_pattern")
+                or self.graph_pattern
             )
 
-            chosen_target = str(getattr(plan, "chosen_target", None) or "refiner").strip().lower()
-            if chosen_target in {"end"}:
-                chosen_target = "final"
-            if chosen_target not in {"refiner", "data_query", "final"}:
-                chosen_target = "refiner"
+            # ✅ FIX: respect planner entry_point (wizard fast-path will be "data_query")
+            entry_point = str(getattr(plan, "entry_point", None) or "refiner").strip().lower() or "refiner"
+            if entry_point not in {"refiner", "data_query", "historian", "final"}:
+                entry_point = "refiner"
+
+            # Route is the planner’s chosen route (if any), else entry_point is the safe default
+            plan_route = getattr(plan, "route", None)
+            route = str(plan_route).strip().lower() if isinstance(plan_route, str) and plan_route.strip() else entry_point
+
+            route_locked = bool(getattr(plan, "route_locked", False))
 
             planned_agents = getattr(plan, "agents_to_run", None) or getattr(plan, "agents", None) or []
 
+            # ✅ FIX: normalize agents relative to entry_point (do not inject refiner when skipping it)
             if caller_forced_agents:
-                forced = _normalize_agents_superset(self.agents_to_run)
+                # caller explicitly forced a list: keep it, but still enforce entry_point + final ordering
+                forced = _normalize_agents_for_entry_point(self.agents_to_run, entry_point=entry_point)
                 self.agents_to_run = forced
             else:
-                normalized = _normalize_agents_superset(planned_agents or self.agents_to_run)
+                normalized = _normalize_agents_for_entry_point(planned_agents or self.agents_to_run, entry_point=entry_point)
                 if normalized != self.agents_to_run:
                     self._compiled_graph = None
                     self._graph = None
@@ -804,8 +875,10 @@ class LangGraphOrchestrator:
             exec_state["execution_plan"] = {
                 "pattern": graph_pattern,                # canonical contract only
                 "agents": list(self.agents_to_run),      # informational
-                "entry_point": "refiner",
-                "chosen_target": chosen_target,
+                "entry_point": entry_point,              # ✅ respect plan
+                "route": route,                          # ✅ respect plan
+                "route_locked": route_locked,            # ✅ respect plan
+                "chosen_target": entry_point,            # legacy: where to start
                 "decided_by": getattr(plan, "decided_by", None),
                 "reason": getattr(plan, "reason", None),
                 "signals": getattr(plan, "signals", None) if isinstance(getattr(plan, "signals", None), dict) else {},
@@ -815,8 +888,10 @@ class LangGraphOrchestrator:
             }
 
             # Back-compat / convenience keys
-            exec_state["route"] = chosen_target
+            exec_state["route"] = route
+            exec_state["route_locked"] = route_locked or bool(exec_state.get("route_locked"))
             exec_state["graph_pattern"] = graph_pattern
+            exec_state["entry_point"] = entry_point
             exec_state["agents_to_run"] = list(self.agents_to_run)
             exec_state["planned_agents"] = list(self.agents_to_run)
             exec_state["plan_decided_by"] = getattr(plan, "decided_by", None)
@@ -824,6 +899,8 @@ class LangGraphOrchestrator:
 
             add_trace_metadata("graph_pattern", graph_pattern)
             add_trace_metadata("compile_variant", compile_variant)
+            add_trace_metadata("entry_point", entry_point)
+            add_trace_metadata("route", route)
 
             # ------------------------------------------------------------------
             # Step 2 — RAG prefetch + checkpoints
@@ -855,8 +932,8 @@ class LangGraphOrchestrator:
                     "thread_id": thread_id,
                     "plan_pattern": graph_pattern,
                     "plan_agents": list(self.agents_to_run),
-                    "plan_entry_point": "refiner",
-                    "plan_chosen_target": chosen_target,
+                    "plan_entry_point": entry_point,        # ✅
+                    "plan_chosen_target": entry_point,       # ✅
                     "compile_variant": compile_variant,
                     "route": exec_state.get("route"),
                     "route_locked": bool(exec_state.get("route_locked")),
@@ -885,7 +962,8 @@ class LangGraphOrchestrator:
                     "pattern": graph_pattern,
                     "compile_variant": compile_variant,
                     "agents": self.agents_to_run,
-                    "route": chosen_target,
+                    "route": route,
+                    "entry_point": entry_point,
                     "mode": OPTION_MODE,
                 },
             )
@@ -940,7 +1018,8 @@ class LangGraphOrchestrator:
                     "graph_pattern": graph_pattern,
                     "compile_variant": compile_variant,
                     "agents_superset": True,
-                    "route": chosen_target,
+                    "route": route,
+                    "entry_point": entry_point,
                     "config": config,
                     "execution_time_ms": total_time_ms,
                     "langgraph_execution": True,
@@ -1165,6 +1244,7 @@ class LangGraphOrchestrator:
 
     def get_dag_structure(self) -> Dict[str, Any]:
         dependencies = get_node_dependencies()
+        # entry_point varies per plan; this is just a static view
         return {"nodes": self.agents_to_run, "dependencies": dependencies, "entry_point": "refiner"}
 
     # ---------------------------------------------------------------------
