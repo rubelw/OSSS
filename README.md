@@ -2,6 +2,7 @@
     **OSSS is still being developed.** Community input and assistance are very welcome!
     - Share feedback and ideas via issues or discussions.
     - Open PRs for bug fixes and small improvements.
+    - As of 7/11/2026 - working to on step machine and logic for workflows, gates, boundaries, etc
 
 # Open Source School Software (OSSS)
 
