@@ -90,7 +90,6 @@ in_vm(){
   # shellcheck disable=SC2029
   podman machine ssh "$VM_NAME" -- bash -lc "$*"
 }
-
 # Install podman-compose (idempotent) via rpm-ostree and reboot if needed
 install_podman_compose_vm(){
   # Make this block resilient to benign failures
@@ -111,10 +110,19 @@ install_podman_compose_vm(){
     if in_vm 'rpm -q podman-compose >/dev/null 2>&1'; then
       ok "podman-compose already layered via rpm-ostree (rpm -q present)."
     else
+      # Remove stale/broken Packit COPR repos before install
+      info "▶ Removing stale COPR repo entries that can break rpm-ostree…"
+      in_vm '
+sudo rm -f /etc/yum.repos.d/podman-release-copr.repo
+sudo rm -f /etc/yum.repos.d/*containers-podman-27732*.repo /etc/yum.repos.d/*packit*.repo || true
+sudo rpm-ostree cleanup -m || true
+'
+
       # Attempt to layer it
       local OUT
       OUT="$(in_vm 'rpm-ostree install -y podman-compose python3-dotenv' 2>&1)"
       local RC=$?
+
       if [ $RC -ne 0 ]; then
         if printf '%s' "$OUT" | grep -qi 'already requested'; then
           info "rpm-ostree reports 'already requested' — likely needs reboot to apply; proceeding."
@@ -123,8 +131,10 @@ install_podman_compose_vm(){
           warn "rpm-ostree install failed (rc=$RC). Continuing to check staged state."
         fi
       fi
+
       info "Rebooting VM to apply rpm-ostree changes…"
       podman machine ssh "$VM" -- systemctl reboot || true
+
       # Wait briefly and ensure VM is back
       sleep 2
       ensure_vm_ready "$VM" || true

@@ -35,7 +35,7 @@ except Exception:
         PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "1") not in ("0", "false", "False")
         VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://host.containers.internal:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
-        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "2048"))
+        TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "4096"))
         DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.1")
 
         # RAG toggles (safe defaults)
@@ -550,7 +550,7 @@ async def chat_completions(
         else getattr(settings, "TUTOR_TEMPERATURE", 0.2)
     )
 
-    DEFAULT_MAX_TOKENS = getattr(settings, "TUTOR_MAX_TOKENS", 2048)
+    DEFAULT_MAX_TOKENS = getattr(settings, "TUTOR_MAX_TOKENS", 4096)
     MIN_COMPLETION_TOKENS = getattr(settings, "MIN_COMPLETION_TOKENS", 512)
 
     requested = payload.max_tokens

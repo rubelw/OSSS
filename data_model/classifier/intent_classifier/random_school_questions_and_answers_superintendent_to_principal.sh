@@ -39,7 +39,7 @@ while IFS= read -r question; do
       "content": '"$json_question"'
     }
   ],
-  "max_tokens": 2048,
+  "max_tokens": 4096,
   "temperature": 0.1,
   "debug": false,
   "index": "main"

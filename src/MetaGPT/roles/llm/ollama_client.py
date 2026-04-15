@@ -74,7 +74,7 @@ class OllamaChatClient:
                 "model": self.model,
                 "messages": messages,
                 "stream": False,
-                "max_tokens": 2048,
+                "max_tokens": 4096,
 
             }
 
@@ -126,7 +126,7 @@ class OllamaChatClient:
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
-                "max_tokens": 2048,
+                "max_tokens": 4096,
 
             }
 
