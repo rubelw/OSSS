@@ -162,8 +162,8 @@ class LLMServicePool:
             request_timeout = min(request_timeout, 12.0)
         # --- END ADDITION ---
 
-        # llama3.1 temperature rule
-        if "llama3.1" in model_lower:
+        # llama3.3 temperature rule
+        if "llama3.3" in model_lower:
             effective_temperature = None
             temp_key = "default"
         else:

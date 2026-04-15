@@ -842,7 +842,7 @@ class DatabaseExecutionMetadata(BaseModel):
                     },
                 },
                 "total_tokens_used": 1800,
-                "model_used": "llama3.1",
+                "model_used": "llama3.3",
                 "success": True,
             }
         },

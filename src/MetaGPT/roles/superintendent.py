@@ -28,8 +28,8 @@ class SuperintendentRole(Role):
 
         # Local Ollama config (override via env)
         base_url = os.getenv("OLLAMA_BASE_URL", "http://host.containers.internal:11434")
-        # In your env you'll typically set OLLAMA_MODEL=llama3.1:latest
-        model = os.getenv("OLLAMA_MODEL", "llama3.2")
+        # In your env you'll typically set OLLAMA_MODEL=llama3.3:latest
+        model = os.getenv("OLLAMA_MODEL", "llama3.3")
 
         logger.info(
             "SuperintendentRole initializing with Ollama base_url=%s model=%s",

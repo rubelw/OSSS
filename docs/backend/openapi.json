@@ -119796,7 +119796,7 @@
                 "description": "OpenAI-style chat completion request body."
               },
               "example": {
-                "model": "llama3.1",
+                "model": "llama3.3",
                 "messages": [
                   {
                     "role": "system",
@@ -120242,7 +120242,7 @@
             ],
             "title": "Model",
             "description": "Model name (e.g., llama3.1)",
-            "default": "llama3.1"
+            "default": "llama3.3"
           },
           "messages": {
             "items": {
@@ -121357,7 +121357,7 @@
             "type": "string",
             "title": "Model",
             "description": "Target model (default: llama3.1)",
-            "default": "llama3.1"
+            "default": "llama3.3"
           },
           "messages": {
             "items": {

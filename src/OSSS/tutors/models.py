@@ -6,7 +6,7 @@ class TutorConfig(BaseModel):
     tutor_id: str
     display_name: str
     system_prompt: str
-    llm_model: str = "llama3.1:latest"
+    llm_model: str = "llama3.3:latest"
     embed_model: str = "all-minilm"
     rag_enabled: bool = True
     rag_index_dir: str = "data/chroma/{tutor_id}"

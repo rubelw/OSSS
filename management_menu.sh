@@ -87,78 +87,128 @@ ensure_vm_running(){
 
 # Run a command inside the VM as the default user (rootless)
 in_vm(){
+  local cmd="${1:-}"
+  [ -n "$cmd" ] || { err "in_vm called with empty command"; return 2; }
   # shellcheck disable=SC2029
-  podman machine ssh "$VM_NAME" -- bash -lc "$*"
+  podman machine ssh "$VM_NAME" -- bash -lc "$cmd"
 }
+
 # Install podman-compose (idempotent) via rpm-ostree and reboot if needed
 install_podman_compose_vm(){
   # Make this block resilient to benign failures
   set +e
   set +o pipefail
 
-  local REBOOTED=0
   local VM="${VM_NAME:-${1:-$VM_CHOSEN}}"
   [ -z "$VM" ] && VM="default"
+
+  local PROVIDER="/usr/bin/podman-compose"
 
   info "▶ Installing podman-compose in VM '${VM}' (rpm-ostree)…"
 
   # Fast path: already available?
-  if in_vm 'command -v podman-compose >/dev/null 2>&1'; then
-    ok "podman-compose already installed (found on PATH)."
+  if in_vm "test -x ${PROVIDER} || rpm -q podman-compose >/dev/null 2>&1"; then
+    ok "podman-compose already installed (binary or rpm present)."
   else
-    # Double-check via RPM database (helps during staged deployments)
-    if in_vm 'rpm -q podman-compose >/dev/null 2>&1'; then
-      ok "podman-compose already layered via rpm-ostree (rpm -q present)."
-    else
-      # Remove stale/broken Packit COPR repos before install
-      info "▶ Removing stale COPR repo entries that can break rpm-ostree…"
-      in_vm '
+    info "▶ Removing stale COPR repo entries that can break rpm-ostree…"
+    podman machine ssh "$VM" -- bash <<'EOF'
+set -e
 sudo rm -f /etc/yum.repos.d/podman-release-copr.repo
 sudo rm -f /etc/yum.repos.d/*containers-podman-27732*.repo /etc/yum.repos.d/*packit*.repo || true
 sudo rpm-ostree cleanup -m || true
-'
+EOF
 
-      # Attempt to layer it
-      local OUT
-      OUT="$(in_vm 'rpm-ostree install -y podman-compose python3-dotenv' 2>&1)"
-      local RC=$?
+    local OUT
+    OUT="$(
+      podman machine ssh "$VM" -- bash <<'EOF'
+set -e
+sudo rpm-ostree install -y podman-compose python3-dotenv
+EOF
+      2>&1
+    )"
+    local RC=$?
 
-      if [ $RC -ne 0 ]; then
-        if printf '%s' "$OUT" | grep -qi 'already requested'; then
-          info "rpm-ostree reports 'already requested' — likely needs reboot to apply; proceeding."
-        else
-          echo "$OUT"
-          warn "rpm-ostree install failed (rc=$RC). Continuing to check staged state."
-        fi
+    if [ $RC -ne 0 ]; then
+      if printf '%s' "$OUT" | grep -qi 'already requested'; then
+        info "rpm-ostree reports 'already requested' — likely needs reboot to apply; proceeding."
+      else
+        echo "$OUT"
+        err "rpm-ostree install failed (rc=$RC)."
+        set -e
+        set -o pipefail
+        return 1
       fi
+    fi
 
-      info "Rebooting VM to apply rpm-ostree changes…"
-      podman machine ssh "$VM" -- systemctl reboot || true
+    info "Rebooting VM to apply rpm-ostree changes…"
+    podman machine ssh "$VM" -- sudo systemctl reboot || true
 
-      # Wait briefly and ensure VM is back
-      sleep 2
-      ensure_vm_ready "$VM" || true
-      REBOOTED=1
+    sleep 2
+    ensure_vm_ready "$VM" || true
+
+    if ! in_vm "test -x ${PROVIDER} || rpm -q podman-compose >/dev/null 2>&1"; then
+      err "podman-compose is still missing after rpm-ostree install/reboot"
+      set -e
+      set -o pipefail
+      return 1
     fi
   fi
 
-  # Configure compose provider (safe even if already configured)
-  info "▶ Configuring Podman to use the external compose provider 'podman-compose'…"
-  in_vm 'mkdir -p ~/.config/containers
-[ -f ~/.config/containers/containers.conf ] || : > ~/.config/containers/containers.conf
-grep -q "compose_providers" ~/.config/containers/containers.conf 2>/dev/null || cat >~/.config/containers/containers.conf <<EOF
-[engine]
-compose_providers=["podman-compose"]
-EOF
-echo "--- containers.conf ---"; nl -ba ~/.config/containers/containers.conf | sed -n "1,200p"
-echo
-echo "-- which podman-compose --"; command -v podman-compose || true
-echo
-echo "-- podman compose version --"; podman compose version || true
-'
-  ok "compose provider configured."
+  info "▶ Configuring Podman to use the external compose provider '${PROVIDER}'…"
+  podman machine ssh "$VM" -- env PROVIDER="$PROVIDER" bash <<'EOF'
+set -e
 
-  # Restore shell strictness
+mkdir -p ~/.config/containers
+cat > ~/.config/containers/containers.conf <<EOC
+[engine]
+compose_providers=["${PROVIDER}"]
+EOC
+
+sudo mkdir -p /root/.config/containers
+sudo tee /root/.config/containers/containers.conf >/dev/null <<EOC
+[engine]
+compose_providers=["${PROVIDER}"]
+EOC
+
+echo "--- user containers.conf ---"
+nl -ba ~/.config/containers/containers.conf | sed -n "1,200p"
+echo
+echo "--- root containers.conf ---"
+sudo nl -ba /root/.config/containers/containers.conf | sed -n "1,200p"
+echo
+echo "-- provider binary checks --"
+ls -l "${PROVIDER}" 2>/dev/null || true
+rpm -q podman-compose 2>/dev/null || true
+echo
+echo "-- which podman-compose (user) --"
+command -v podman-compose || true
+echo
+echo "-- which podman-compose (root) --"
+sudo sh -lc 'command -v podman-compose || true'
+echo
+echo "-- podman compose version (user) --"
+podman compose version || true
+echo
+echo "-- podman compose version (root) --"
+sudo podman compose version || true
+EOF
+
+  if ! podman machine ssh "$VM" -- test -x "$PROVIDER"; then
+    err "provider binary ${PROVIDER} does not exist"
+    set -e
+    set -o pipefail
+    return 1
+  fi
+
+  if ! podman machine ssh "$VM" -- sudo podman compose version >/dev/null 2>&1; then
+    err "root still cannot run podman compose after provider configuration"
+    set -e
+    set -o pipefail
+    return 1
+  fi
+
+  ok "compose provider configured for user and root."
+
   set -e
   set -o pipefail
 }
@@ -182,7 +232,7 @@ start_ollama() {
   local OLLAMA_PORT=11434
   local EMBEDDINGS_FILE="vector_indexes/main/embeddings.jsonl"  # Replace with your actual file path
   local BATCH_SIZE=50  # Number of lines per batch
-  local MODEL="llama3.1"
+  local MODEL="llama3.3"
 
   # If it's already running, just report status and exit
   if pgrep -f "ollama serve" >/dev/null 2>&1; then
@@ -251,8 +301,12 @@ start_ollama() {
 ensure_ollama_local() {
   echo "🧠 Ensuring Ollama is installed and running locally with preloaded models…"
   # Use Mistral as the main chat model, keep embed models as-is
-  local MODELS=("qwen2.5:1.5b-instruct" "all-minilm:latest" "nomic-embed-text:latest","llama3.1:latest")
-
+  local MODELS=(
+    "qwen2.5:1.5b-instruct"
+    "all-minilm:latest"
+    "nomic-embed-text:latest"
+    "llama3.3:latest"
+  )
   local OLLAMA_HOST="0.0.0.0"
   local OLLAMA_PORT=11434
 
@@ -455,69 +509,6 @@ VM_PODMAN_SOCK="$(resolve_vm_podman_sock)"
 export VM_PODMAN_SOCK
 
 # Install podman-compose inside the VM (system package) and configure Podman to use it
-install_podman_compose_vm() {
-  set -euo pipefail
-
-  local vm
-  vm="$(podman machine active 2>/dev/null || echo default)"
-  echo "▶️ Target VM: ${vm}"
-
-  echo "▶️ Installing system podman-compose in '${vm}' (rpm-ostree)…"
-  podman machine ssh "${vm}" -- bash -s <<'VM1'
-set -euo pipefail
-# 1) remove any user shim to avoid loops
-rm -f "$HOME/bin/podman-compose" || true
-
-# 2) install system podman-compose (requires reboot to apply)
-sudo rpm-ostree install -y podman-compose || { echo "rpm-ostree install failed"; exit 1; }
-
-echo "Rebooting VM to apply rpm-ostree changes…"
-nohup sh -lc "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
-VM1
-
-  echo "▶️ Waiting for VM reboot…"
-  # 1) wait for SSH to drop
-  for i in {1..120}; do
-    if ! podman machine ssh "${vm}" -- true >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-  # 2) wait for SSH to come back
-  for i in {1..240}; do
-    if podman machine ssh "${vm}" -- true >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-
-  echo "▶️ Configuring Podman to use the external provider 'podman-compose'…"
-  podman machine ssh "${vm}" -- bash -s <<'VM2'
-set -euo pipefail
-
-# 3) Set compose_providers to use podman-compose
-mkdir -p "$HOME/.config/containers"
-cat > "$HOME/.config/containers/containers.conf" <<'EOF'
-[engine]
-compose_providers=["podman-compose"]
-EOF
-
-# 4) Sanity checks
-echo "--- containers.conf ---"
-grep -n '^compose_providers' "$HOME/.config/containers/containers.conf" || true
-
-echo
-echo "-- which podman-compose --"
-command -v podman-compose || { echo "podman-compose not found on PATH"; exit 1; }
-
-echo
-echo "-- podman compose version --"
-podman compose version 2>&1 | sed -n '1,6p'
-VM2
-
-  echo "✅ podman-compose installed & configured for VM '${vm}'."
-}
-
 
 
 ensure_podman_ready() {
@@ -609,7 +600,10 @@ ensure_podman_ready() {
         if command -v podman-compose >/dev/null 2>&1 || rpm -q podman-compose >/dev/null 2>&1; then
           exit 0
         fi
-        sudo rpm-ostree install -y podman-compose >/dev/null
+        sudo rm -f /etc/yum.repos.d/podman-release-copr.repo
+        sudo rm -f /etc/yum.repos.d/*containers-podman-27732*.repo /etc/yum.repos.d/*packit*.repo || true
+        sudo rpm-ostree cleanup -m || true
+        sudo rpm-ostree install -y podman-compose python3-dotenv >/dev/null
         nohup sh -c "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
       '
       echo "[ensure_podman_ready] waiting for VM reboot…"
@@ -1061,7 +1055,7 @@ check_ollama_ready() {
   set -euo pipefail
 
   # Default to Mistral if no explicit model passed
-  local MODEL_NAME="${1:-llama3.1}"
+  local MODEL_NAME="${1:-llama3.3}"
   # Allow override via env; default to ./ollama_data
   local OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-./ollama_data}"
   local MODELS_DIR="${OLLAMA_DATA_DIR%/}/models"
@@ -3646,10 +3640,18 @@ reset_podman_machine() {
     done
     # set compose provider
     podman machine ssh "$NAME" -- bash -lc '
-      mkdir -p ~/.config/containers
-      grep -q "compose_providers" ~/.config/containers/containers.conf 2>/dev/null || cat >~/.config/containers/containers.conf <<EOF
-[engine]
-compose_providers=["podman-compose"]
+    # user config
+    mkdir -p ~/.config/containers
+    cat > ~/.config/containers/containers.conf <<'EOF'
+    [engine]
+    compose_providers=["podman-compose"]
+EOF
+
+    # root config
+    sudo mkdir -p /root/.config/containers
+    sudo tee /root/.config/containers/containers.conf >/dev/null <<'EOF'
+    [engine]
+    compose_providers=["podman-compose"]
 EOF
     '
   fi
@@ -4810,7 +4812,10 @@ utilities_menu() {
               elif command -v apt-get >/dev/null 2>&1; then
                 sudo apt-get update -y && sudo apt-get -y install podman-compose
               elif command -v rpm-ostree >/dev/null 2>&1; then
-                sudo rpm-ostree install -y podman-compose
+                sudo rm -f /etc/yum.repos.d/podman-release-copr.repo
+sudo rm -f /etc/yum.repos.d/*containers-podman-27732*.repo /etc/yum.repos.d/*packit*.repo || true
+sudo rpm-ostree cleanup -m || true
+sudo rpm-ostree install -y podman-compose python3-dotenv
                 echo "🔄 Rebooting VM to apply rpm-ostree layer…"
                 nohup sh -lc "sleep 1; sudo systemctl reboot" >/dev/null 2>&1 &
               else
@@ -4827,7 +4832,10 @@ utilities_menu() {
               elif command -v apt-get >/dev/null 2>&1; then
                 sudo apt-get update -y && sudo apt-get -y install podman-compose
               elif command -v rpm-ostree >/dev/null 2>&1; then
-                sudo rpm-ostree install -y podman-compose
+                sudo rm -f /etc/yum.repos.d/podman-release-copr.repo
+sudo rm -f /etc/yum.repos.d/*containers-podman-27732*.repo /etc/yum.repos.d/*packit*.repo || true
+sudo rpm-ostree cleanup -m || true
+sudo rpm-ostree install -y podman-compose python3-dotenv
               fi
             else
               echo "✅ podman-compose already installed (rootless fallback)."

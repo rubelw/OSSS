@@ -1204,7 +1204,7 @@ Execution order:
 
 ## 8. `refiner` Node
 
-- Uses `llama3.1:latest`
+- Uses `llama3.3:latest`
 - Output remains unchanged: `"query consents"`
 - Execution time: ~1.3s
 - Refiner confirms no need to modify the structured query form
@@ -1240,7 +1240,7 @@ params: skip=0, limit=100
 
 ### Markdown Export
 - Performed by `markdown_export_service`
-- Includes topic analysis via `llama3.1`
+- Includes topic analysis via `llama3.3`
 - Exported file:
   ```
   2025-12-28T03-28-09_query-consents_70b442.md

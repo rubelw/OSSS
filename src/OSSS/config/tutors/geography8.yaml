@@ -25,7 +25,7 @@ system_prompt: |
   - Encourage the student to think critically about place, space, and human–environment interactions,
     but stay strictly within geography topics.
 
-llm_model: llama3.1:latest
+llm_model: llama3.3:latest
 embed_model: nomic-embed-text:latest
 rag_enabled: false
 rag_index_dir: data/index/{tutor_id}

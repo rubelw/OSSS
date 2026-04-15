@@ -92,7 +92,7 @@ export async function POST(
         Authorization: req.headers.get("authorization") ?? "",
       },
       body: JSON.stringify({
-        model: "llama3.1",
+        model: "llama3.3",
         messages: guardMessages,
         temperature: 0.2,
         max_tokens: 512,

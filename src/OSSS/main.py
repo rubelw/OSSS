@@ -40,6 +40,9 @@ from OSSS.api.routers.health import router as health_router
 from OSSS.api.logout import router as logout_router
 from consul import Consul
 
+from OSSS.api.routers.web_fallback import router as web_fallback_router
+
+
 # New auth deps
 from OSSS.auth.deps import ensure_access_token, get_current_user
 from OSSS.api.ai_gateway import router as ai_gateway_router
@@ -524,8 +527,7 @@ def create_app() -> FastAPI:
         app.include_router(workflows.router, prefix="/api")
         app.include_router(admin.router, prefix="/api")
 
-
-
+        app.include_router(web_fallback_router, prefix="/api")
 
         app.include_router(probe)
         app.include_router(sessions_diag_router)

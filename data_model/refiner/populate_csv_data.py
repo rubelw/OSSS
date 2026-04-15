@@ -22,7 +22,7 @@ Directory layout (relative to this script in /data_model/refiner):
 
 Defaults assume a local Ollama server running on:
   http://localhost:11434/api/chat
-with a model like "llama3.1" or "llama3".
+with a model like "llama3.3" or "llama3".
 
 Example usage (from /data_model/refiner):
 
@@ -379,8 +379,8 @@ def main() -> None:
     parser.add_argument(
         "--ollama-model",
         type=str,
-        default="llama3.1",
-        help='Ollama model name (default: "llama3.1")',
+        default="llama3.3",
+        help='Ollama model name (default: "llama3.3")',
     )
     parser.add_argument(
         "--examples-per-table",

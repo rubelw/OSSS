@@ -28,7 +28,7 @@ while IFS= read -r question; do
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
-  "model": "llama3.1",
+  "model": "llama3.3",
   "messages": [
     {
       "role": "system",

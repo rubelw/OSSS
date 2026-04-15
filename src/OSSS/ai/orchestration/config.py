@@ -48,7 +48,7 @@ class NodeExecutionConfig(BaseModel):
     """
 
     timeout_seconds: float = Field(
-        default=30.0, gt=0, description="Maximum execution time for the node in seconds"
+        default=120.0, gt=0, description="Maximum execution time for the node in seconds"
     )
     retry_enabled: bool = Field(
         default=True, description="Whether to enable retry logic for failed executions"

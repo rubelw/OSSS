@@ -15,7 +15,7 @@ class BackendAPIConfig(BaseModel):
         BackendAPIConfig(base_url="http://app:8000")
     """
     base_url: str
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 120.0
 
 
 class BackendAPIClient:

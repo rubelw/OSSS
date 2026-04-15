@@ -5,12 +5,12 @@
   "agents": {
     "refiner": {
       "provider": "ollama",
-      "model": "llama3.1:latest",
+      "model": "llama3.3:latest",
       "extra_body": { "use_rag": true }
     },
     "historian": {
       "provider": "ollama",
-      "model": "llama3.1:latest",
+      "model": "llama3.3:latest",
       "extra_body": { "use_rag": true }
     },
     "critic": {
@@ -20,12 +20,12 @@
     },
     "synthesis": {
       "provider": "ollama",
-      "model": "llama3.1:latest",
+      "model": "llama3.3:latest",
       "extra_body": { "use_rag": true }
     },
     "final": {
       "provider": "ollama",
-      "model": "llama3.1:latest",
+      "model": "llama3.3:latest",
       "extra_body": { "use_rag": true }
     }
   }

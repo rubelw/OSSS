@@ -105,10 +105,23 @@ async def _ensure_rag_for_final(
 
     # 🔹 If orchestrator already injected rag_context into state, just adopt it.
     existing_ctx = exec_state.get("rag_context") or state.get("rag_context")
-    if isinstance(existing_ctx, str) and existing_ctx.strip():
+    existing_meta = exec_state.get("rag_meta")
+    if not isinstance(existing_meta, dict):
+        existing_meta = {}
+
+    # If we already have context AND it already came from web fallback, keep it.
+    if (
+        isinstance(existing_ctx, str)
+        and existing_ctx.strip()
+        and bool(existing_meta.get("used_web_fallback", False))
+    ):
         exec_state["rag_context"] = existing_ctx
+        exec_state["rag_snippet"] = existing_ctx
         exec_state["rag_enabled"] = True
         return
+
+    # Otherwise, do NOT early-return here.
+    # We may only have raw local RAG and still want the fallback-aware retriever path.
 
     # Build the query we'll embed against
     user_question = (
@@ -140,29 +153,66 @@ async def _ensure_rag_for_final(
     )
 
     try:
-        rag_context = await rag_prefetch_additional(
+        rag_result = await rag_prefetch_additional(
             query=user_question,
             index=index,
             top_k=top_k,
         )
 
-        rag_context = rag_context or ""
-        exec_state["rag_context"] = rag_context
-        exec_state.setdefault("rag_hits", [])
-        exec_state["rag_enabled"] = bool(rag_context.strip())
-        exec_state["rag_meta"] = {
-            "provider": "ollama",
-            "embed_model": embed_model,
-            "index": index,
-            "top_k": top_k,
-        }
+
+
+        rag_text = ""
+        rag_meta: Dict[str, Any] = {}
+
+        if rag_result is not None:
+            rag_text = (getattr(rag_result, "combined_text", "") or "").strip()
+            meta_obj = getattr(rag_result, "meta", {})
+            if isinstance(meta_obj, dict):
+                rag_meta = dict(meta_obj)
+
+        logger.warning(
+            "[final_node] fallback-aware rag prefetch result",
+            extra={
+                "rag_chars": len(rag_text),
+                "used_web_fallback": bool(rag_meta.get("used_web_fallback", False)),
+                "web_fallback_sources": rag_meta.get("web_fallback_sources", []),
+                "rag_preview": rag_text[:200],
+            },
+        )
+
+        exec_state["rag_context"] = rag_text
+        exec_state["rag_snippet"] = rag_text
+        exec_state["rag_enabled"] = bool(rag_text)
+
+        # preserve meta from the retriever/fallback path
+        existing_meta = exec_state.get("rag_meta")
+        merged_meta: Dict[str, Any] = {}
+        if isinstance(existing_meta, dict):
+            merged_meta.update(existing_meta)
+        merged_meta.update(
+            {
+                "provider": "ollama",
+                "embed_model": embed_model,
+                "index": index,
+                "top_k": top_k,
+            }
+        )
+        merged_meta.update(rag_meta)
+        exec_state["rag_meta"] = merged_meta
+
+        # helpful direct flags for final-node logging / downstream prompt handling
+        exec_state["used_web_fallback"] = bool(rag_meta.get("used_web_fallback", False))
+        exec_state["web_fallback_sources"] = rag_meta.get("web_fallback_sources", [])
+        exec_state["web_fallback_names"] = rag_meta.get("web_fallback_names", [])
 
         logger.info(
             "[final_node] RAG prefetch completed",
             extra={
                 "index": index,
                 "top_k": top_k,
-                "rag_chars": len(rag_context),
+                "rag_chars": len(rag_text),
+                "used_web_fallback": exec_state["used_web_fallback"],
+                "web_fallback_sources": exec_state.get("web_fallback_sources", []),
             },
         )
     except Exception as e:
@@ -171,7 +221,6 @@ async def _ensure_rag_for_final(
         )
         exec_state["rag_enabled"] = False
         exec_state.setdefault("rag_error", str(e))
-
 
 def extract_question_from_refiner(markdown: str) -> str | None:
     # Try to find the `* **Query**: ...` line
@@ -992,6 +1041,9 @@ async def final_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dict[st
                 "user_question_preview": (exec_state.get("user_question") or "")[:120],
                 "refiner_snippet_present": bool(exec_state.get("refiner_snippet")),
                 "rag_snippet_present": bool(exec_state.get("rag_snippet")),
+                "used_web_fallback": bool(exec_state.get("used_web_fallback", False)),
+                "rag_snippet_preview": (exec_state.get("rag_snippet") or "")[:200],
+                "web_fallback_sources": exec_state.get("web_fallback_sources", []),
             },
         )
 
@@ -1651,7 +1703,7 @@ async def synthesis_node(state: OSSSState, runtime: Runtime[OSSSContext]) -> Dic
 # Utilities
 # ---------------------------------------------------------------------------
 
-async def handle_node_timeout(coro: Coroutine[Any, Any, Any], timeout_seconds: float = 30.0) -> Any:
+async def handle_node_timeout(coro: Coroutine[Any, Any, Any], timeout_seconds: float = 120.0) -> Any:
     try:
         return await asyncio.wait_for(coro, timeout=timeout_seconds)
     except asyncio.TimeoutError:

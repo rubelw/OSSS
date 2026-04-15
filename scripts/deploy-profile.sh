@@ -66,23 +66,43 @@ if [ "$PROFILE" = "keycloak" ]; then
 fi
 
 # ---- Optional: load simple KEY=VAL from .env (no code exec) ----
-PRESERVE=""
+PRESERVE_ENV_ARGS=()
 if [ -f "$DOTENV" ]; then
-  VARS=$(sed -e 's/^[[:space:]]*export[[:space:]]\+//' "$DOTENV" \
-         | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' \
-         | cut -d= -f1 | tr '\n' ',' | sed 's/,$//') || true
+  VARS="$(
+    sed -e 's/^[[:space:]]*export[[:space:]]\+//' "$DOTENV" \
+      | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' \
+      | cut -d= -f1 \
+      | tr '\n' ',' \
+      | sed 's/,$//'
+  )" || true
+
   while IFS= read -r line; do
-    case "$line" in ""|\#*) continue ;; esac
+    case "$line" in
+      ""|\#*) continue
+        ;;
+    esac
     line="${line#export }"
     case "$line" in
       *=*)
-        k="${line%%=*}"; v="${line#*=}"
-        if [ "${v#\"}" != "$v" ] && [ "${v%\"}" != "$v" ]; then v="${v#\"}"; v="${v%\"}"; fi
+        k="${line%%=*}"
+        v="${line#*=}"
+        if [ "${v#\"}" != "$v" ] && [ "${v%\"}" != "$v" ]; then
+          v="${v#\"}"
+          v="${v%\"}"
+        fi
         export "$k=$v"
         ;;
     esac
   done < "$DOTENV"
-  [ -n "${VARS:-}" ] && PRESERVE="--preserve-env=$VARS"
+
+  if [ -n "${VARS:-}" ]; then
+    PRESERVE_ENV_ARGS=( "--preserve-env=$VARS" )
+  fi
+fi
+
+SUDO_CMD=(sudo)
+if [ "${#PRESERVE_ENV_ARGS[@]}" -gt 0 ]; then
+  SUDO_CMD+=( "${PRESERVE_ENV_ARGS[@]}" )
 fi
 
 # ---- Ensure the external podman network exists ----
@@ -127,22 +147,21 @@ grep -Eo '/var/lib/containers/storage/volumes/[A-Za-z0-9_.-]+/_data/[^[:space:]]
     done
 
 # ---- Choose compose CLI (support optional override -f) ----
-if sudo podman compose version >/dev/null 2>&1; then
+BASE_COMPOSE_ARGS=( -p "$PROJECT" -f "$FILE" )
+if [ -n "${OVERRIDE_NET:-}" ]; then
+  BASE_COMPOSE_ARGS+=( -f "$OVERRIDE_NET" )
+fi
+BASE_COMPOSE_ARGS+=( --profile "$PROFILE" )
+
+COMPOSE=()
+if "${SUDO_CMD[@]}" podman compose version >/dev/null 2>&1; then
   echo "▶ Using: podman compose"
-  if [ -n "${OVERRIDE_NET:-}" ]; then
-    COMPOSE=(sudo ${PRESERVE:+$PRESERVE} podman compose -p "$PROJECT" -f "$FILE" -f "$OVERRIDE_NET" --profile "$PROFILE")
-  else
-    COMPOSE=(sudo ${PRESERVE:+$PRESERVE} podman compose -p "$PROJECT" -f "$FILE" --profile "$PROFILE")
-  fi
-elif command -v sudo podman-compose >/dev/null 2>&1; then
+  COMPOSE=( "${SUDO_CMD[@]}" podman compose "${BASE_COMPOSE_ARGS[@]}" )
+elif "${SUDO_CMD[@]}" bash -lc 'command -v podman-compose >/dev/null 2>&1'; then
   echo "▶ Using: podman-compose"
-  if [ -n "${OVERRIDE_NET:-}" ]; then
-    COMPOSE=(sudo ${PRESERVE:+$PRESERVE} podman-compose -p "$PROJECT" -f "$FILE" -f "$OVERRIDE_NET" --profile "$PROFILE")
-  else
-    COMPOSE=(sudo ${PRESERVE:+$PRESERVE} podman-compose -p "$PROJECT" -f "$FILE" --profile "$PROFILE")
-  fi
+  COMPOSE=( "${SUDO_CMD[@]}" podman-compose "${BASE_COMPOSE_ARGS[@]}" )
 else
-  echo "❌ Neither podman compose nor podman-compose is installed" >&2
+  echo "❌ Neither 'sudo podman compose' nor 'sudo podman-compose' is available" >&2
   exit 1
 fi
 
@@ -175,6 +194,7 @@ service_cid() {
     --filter "label=com.docker.compose.service=$1" \
     --format "{{.ID}}" | head -n1
 }
+
 wait_one() {
   cid="$1"; [ -n "$cid" ] || return 0
   name="$(sudo podman inspect -f '{{.Name}}' "$cid" | sed 's#^/##')"
@@ -185,10 +205,10 @@ wait_one() {
     state="$(sudo podman inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
     exitc="$(sudo podman inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "")"
     case "$health:$state:$exitc" in
-      healthy:running:*)  echo "✅ $name healthy"; return 0 ;;
-      :running:*)         echo "✅ $name running"; return 0 ;;
-      *:exited:0)         echo "✅ $name completed"; return 0 ;;
-      *:exited:*)         echo "❌ $name exit=$exitc"; sudo podman logs --tail=200 "$cid" || true; return 1 ;;
+      healthy:running:*) echo "✅ $name healthy"; return 0 ;;
+      :running:*)        echo "✅ $name running"; return 0 ;;
+      *:exited:0)        echo "✅ $name completed"; return 0 ;;
+      *:exited:*)        echo "❌ $name exit=$exitc"; sudo podman logs --tail=200 "$cid" || true; return 1 ;;
     esac
     i=$((i+2)); sleep 2
   done
@@ -201,6 +221,7 @@ for s in $("${COMPOSE[@]}" config --services); do
   [ -z "$cid" ] || wait_one "$cid" || rc=1
 done
 
-echo; echo "▶ Final:"
+echo
+echo "▶ Final:"
 "${COMPOSE[@]}" ps || true
 exit "$rc"

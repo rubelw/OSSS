@@ -21,10 +21,10 @@ class OpenAIConfig(BaseModel):
         json_schema_extra={"example": "sk-..."},
     )
     model: str = Field(
-        "llama3.1",
+        "llama3.3",
         description="OpenAI model to use for completions",
         min_length=1,
-        json_schema_extra={"example": "llama3.1"},
+        json_schema_extra={"example": "llama3.3"},
     )
     base_url: Optional[str] = Field(
         None,
@@ -109,7 +109,7 @@ class OpenAIConfig(BaseModel):
 
         return cls(
             api_key=api_key,
-            model=os.getenv("OPENAI_MODEL", "llama3.1"),
+            model=os.getenv("OPENAI_MODEL", "llama3.3"),
             base_url=os.getenv("OPENAI_API_BASE"),
         )
 

@@ -25,7 +25,7 @@ OPENAI_BASE = _normalize_base(_BASE_RAW)
 # Key: Ollama ignores it, but OpenAI SDKs expect something. Keep it around.
 OPENAI_API_KEY = os.getenv("SAFE_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "ollama"
 
-LLM_MODEL   = os.getenv("LLM_MODEL", "llama3.1")
+LLM_MODEL   = os.getenv("LLM_MODEL", "llama3.3")
 
 # ----- Output shape you want to render reliably -----
 class TutorReply(BaseModel):

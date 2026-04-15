@@ -118,7 +118,7 @@ class CircuitBreakerConfig(BaseModel):
         json_schema_extra={"example": 3},
     )
     timeout_seconds: float = Field(
-        default=60.0,
+        default=120.0,
         description="Timeout before trying to close circuit in seconds",
         ge=1.0,
         le=3600.0,

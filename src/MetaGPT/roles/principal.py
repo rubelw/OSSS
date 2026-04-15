@@ -29,8 +29,8 @@ class PrincipalRole(Role):
 
         # Local Ollama config (override via env if you want)
         base_url = os.getenv("OLLAMA_BASE_URL", "http://host.containers.internal:11434")
-        # Match your actual model, e.g. llama3.1:latest via env
-        model = os.getenv("OLLAMA_MODEL", "llama3.2")
+        # Match your actual model, e.g. llama3.3:latest via env
+        model = os.getenv("OLLAMA_MODEL", "llama3.3")
 
         logger.info(
             "PrincipalRole initializing with Ollama base_url=%s model=%s",

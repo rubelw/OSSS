@@ -15,8 +15,8 @@ INDEX_PATH = os.path.join(
 
 OLLAMA_URL = "http://localhost:11434"
 EMBED_MODEL = "nomic-embed-text"
-GEN_MODEL = "llama3.1"
-TOP_K = 5
+GEN_MODEL = "llama3.3"
+TOP_K = 10
 # -----------------
 
 

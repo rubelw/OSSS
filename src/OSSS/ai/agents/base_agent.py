@@ -246,7 +246,7 @@ class BaseAgent(ABC):
         self,
         name: str,
         retry_config: Optional[AgentRetryConfig] = None,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 120.0,
         enable_circuit_breaker: bool = True,
     ) -> None:
         self.name: str = name

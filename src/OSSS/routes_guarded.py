@@ -25,8 +25,8 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     model: str = Field(
-        default="llama3.1",
-        description="Target model (default: llama3.1)",
+        default="llama3.3",
+        description="Target model (default: llama3.3)",
     )
     messages: List[Message] = Field(
         default=[

@@ -75,9 +75,9 @@ class LangChainService:
 
     # Provider-specific method mapping - SIMPLIFIED for base models
     PROVIDER_METHODS = {
-        "llama3.1": "json_schema",  # Base llama3.1 has full json_schema support
-        "llama3.1-mini": "json_schema",  # Mini is still a base model, keep it
-        "llama3.1-nano": "json_schema",  # Nano is still a base model, keep it
+        "llama3.3": "json_schema",  # Base llama3.3 has full json_schema support
+        "llama3.3-mini": "json_schema",  # Mini is still a base model, keep it
+        "llama3.3-nano": "json_schema",  # Nano is still a base model, keep it
         "gpt-4o": "json_schema",  # GPT-4o supports json_schema
         "gpt-4o-mini": "json_schema",  # GPT-4o-mini supports json_schema
         "gpt-4-turbo": "json_schema",  # GPT-4-turbo supports json_schema
@@ -329,13 +329,13 @@ class LangChainService:
         except Exception as e:
             self.logger.warning(f"Model discovery failed: {e}")
 
-        # SIMPLIFIED fallbacks - prefer base llama3.1 when available
-        # User wisdom: "just use the model: 'llama3.1'"
+        # SIMPLIFIED fallbacks - prefer base llama3.3 when available
+        # User wisdom: "just use the model: 'llama3.3'"
         agent_fallbacks = {
-            "refiner": "llama3.1",  # Keep nano for ultra-fast requirement
-            "historian": "llama3.1",  # Base llama3.1 for historian
-            "critic": "llama3.1",  # Base llama3.1 for critic
-            "synthesis": "llama3.1",  # Base llama3.1 for synthesis
+            "refiner": "llama3.3",  # Keep nano for ultra-fast requirement
+            "historian": "llama3.3",  # Base llama3.3 for historian
+            "critic": "llama3.3",  # Base llama3.3 for critic
+            "synthesis": "llama3.3",  # Base llama3.3 for synthesis
         }
         fallback = agent_fallbacks.get(self.agent_name, "gpt-4o")
         self.logger.info(
@@ -372,8 +372,8 @@ class LangChainService:
                 if self.agent_name == "synthesis":
                     kwargs["max_tokens"] = 600
 
-            # Keep your llama3.1 temperature rule
-            if "llama3.1" not in model_lower and not is_ollama:
+            # Keep your llama3.3 temperature rule
+            if "llama3.3" not in model_lower and not is_ollama:
                 kwargs["temperature"] = temperature
 
             return ChatOpenAI(**kwargs)
@@ -394,26 +394,26 @@ class LangChainService:
                 "base_url": base_url,
             }
 
-            # CRITICAL FIX: llama3.1 models only support temperature=1 (default)
-            # Exclude temperature parameter for llama3.1 to avoid API constraint errors
-            if "llama3.1" not in model_lower:
+            # CRITICAL FIX: llama3.3 models only support temperature=1 (default)
+            # Exclude temperature parameter for llama3.3 to avoid API constraint errors
+            if "llama3.3" not in model_lower:
                 openai_kwargs["temperature"] = temperature
             else:
                 self.logger.info(
-                    f"Excluding temperature parameter for {model} (llama3.1 only supports default temperature=1)"
+                    f"Excluding temperature parameter for {model} (llama3.3 only supports default temperature=1)"
                 )
 
-            # CRITICAL FIX: llama3.1 models require max_completion_tokens instead of max_tokens
-            # Transform parameter for llama3.1 models to avoid "Unsupported parameter" errors
-            if "max_tokens" in openai_kwargs and "llama3.1" in model_lower:
+            # CRITICAL FIX: llama3.3 models require max_completion_tokens instead of max_tokens
+            # Transform parameter for llama3.3 models to avoid "Unsupported parameter" errors
+            if "max_tokens" in openai_kwargs and "llama3.3" in model_lower:
                 openai_kwargs["max_completion_tokens"] = openai_kwargs.pop("max_tokens")
                 self.logger.info(
-                    f"Transformed max_tokens → max_completion_tokens for {model} (llama3.1 parameter requirement)"
+                    f"Transformed max_tokens → max_completion_tokens for {model} (llama3.3 parameter requirement)"
                 )
 
             # CRITICAL FIX: Removing output_version for now as it breaks the endpoint
-            # The native OpenAI parse() method will handle llama3.1 structured outputs
-            # if "llama3.1" in model_lower:
+            # The native OpenAI parse() method will handle llama3.3 structured outputs
+            # if "llama3.3" in model_lower:
             #     openai_kwargs["output_version"] = "responses/v1"  # This causes /v1/responses endpoint issue
 
             return ChatOpenAI(**openai_kwargs)
@@ -429,9 +429,9 @@ class LangChainService:
             return "json_mode"
 
         # Existing special-case handling
-        if "llama3.1" in model_lower and "2025-08" in model_lower:
+        if "llama3.3" in model_lower and "2025-08" in model_lower:
             self.logger.warning(
-                f"Model {model} is a timestamped llama3.1 variant requiring function_calling method"
+                f"Model {model} is a timestamped llama3.3 variant requiring function_calling method"
             )
             return "function_calling"
 
@@ -441,8 +441,8 @@ class LangChainService:
             )
             return "json_mode"
 
-        # Base llama3.1 models (ONLY if not Ollama)
-        if model_lower in ["llama3.1", "llama3.1-nano", "llama3.1-mini"]:
+        # Base llama3.3 models (ONLY if not Ollama)
+        if model_lower in ["llama3.3", "llama3.3-nano", "llama3.3-mini"]:
             self.logger.info(f"Using json_schema for base model {model}")
             return "json_schema"
 
@@ -671,7 +671,7 @@ class LangChainService:
         # TESTING: Re-enabling native OpenAI parse to check if bugs are fixed
         # Previous issue: beta.chat.completions.parse was returning None
         # Testing if OpenAI has fixed these bugs as of Nov 2025
-        if "llama3.1" in self.model_name.lower()  and not self._is_ollama():  # Re-enabled for testing
+        if "llama3.3" in self.model_name.lower()  and not self._is_ollama():  # Re-enabled for testing
             try:
                 self.logger.info(
                     f"[NATIVE PARSE TEST] Attempting native OpenAI parse for {self.model_name}"
@@ -681,7 +681,7 @@ class LangChainService:
                 )
             except Exception as e:
                 self.logger.warning(
-                    f"[NATIVE PARSE TEST] Native OpenAI parse failed for llama3.1: {e}, falling back to LangChain"
+                    f"[NATIVE PARSE TEST] Native OpenAI parse failed for llama3.3: {e}, falling back to LangChain"
                 )
                 # Fall through to LangChain attempt
 
@@ -709,10 +709,10 @@ class LangChainService:
         methods_to_try = [method]
 
         # Add fallback methods based on primary method
-        if method == "json_schema" and "llama3.1" in self.model_name.lower():
+        if method == "json_schema" and "llama3.3" in self.model_name.lower():
             methods_to_try.append(
                 "function_calling"
-            )  # Fallback for problematic llama3.1 variants
+            )  # Fallback for problematic llama3.3 variants
         if method != "json_mode":
             methods_to_try.append("json_mode")  # Ultimate fallback
 
@@ -727,10 +727,10 @@ class LangChainService:
 
                 # Add timeout protection to prevent hanging
                 try:
-                    # CRITICAL FIX: Use schema transformation for llama3.1 strict mode
-                    # llama3.1 requires ALL properties in required array (strict mode)
+                    # CRITICAL FIX: Use schema transformation for llama3.3 strict mode
+                    # llama3.3 requires ALL properties in required array (strict mode)
                     use_schema_transformation = (
-                        "llama3.1" in self.model_name.lower()
+                        "llama3.3" in self.model_name.lower()
                         and method_attempt == "json_schema"
                     )
 
@@ -774,7 +774,7 @@ class LangChainService:
                             f"[SCHEMA DEBUG] with_structured_output() created, about to invoke..."
                         )
                     else:
-                        # Use standard Pydantic class for non-llama3.1 models
+                        # Use standard Pydantic class for non-llama3.3 models
                         structured_llm = self.llm.with_structured_output(
                             output_class,
                             method=method_attempt,
@@ -953,9 +953,9 @@ class LangChainService:
         include_raw: bool = False,
     ) -> Union[T, Dict[str, Any]]:
         """
-        Use OpenAI's native parse() API for llama3.1 models.
+        Use OpenAI's native parse() API for llama3.3 models.
 
-        This is the PROVEN approach from user testing that works with llama3.1.
+        This is the PROVEN approach from user testing that works with llama3.3.
         LangChain's with_structured_output() breaks with output_version parameter,
         but native OpenAI API works perfectly.
         """
@@ -1005,13 +1005,13 @@ class LangChainService:
                 },
             }
 
-            # CRITICAL FIX: llama3.1 models only support temperature=1 (default)
-            # Exclude temperature parameter for llama3.1 to avoid API constraint errors
-            if "llama3.1" not in self.model_name.lower():
+            # CRITICAL FIX: llama3.3 models only support temperature=1 (default)
+            # Exclude temperature parameter for llama3.3 to avoid API constraint errors
+            if "llama3.3" not in self.model_name.lower():
                 create_kwargs["temperature"] = self.temperature
             else:
                 self.logger.info(
-                    f"Excluding temperature from native create for {self.model_name} (llama3.1 only supports default temperature=1)"
+                    f"Excluding temperature from native create for {self.model_name} (llama3.3 only supports default temperature=1)"
                 )
 
             self.logger.info(

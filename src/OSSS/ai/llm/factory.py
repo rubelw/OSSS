@@ -156,13 +156,13 @@ class LLMFactory:
             if agent == "critic":
                 default_model = os.getenv("OSSS_CRITIC_OLLAMA_MODEL") or "qwen2.5:1.5b-instruct"
             elif agent == "refiner":
-                default_model = os.getenv("OSSS_REFINER_MODEL") or "llama3.1:latest"
+                default_model = os.getenv("OSSS_REFINER_MODEL") or "llama3.3:latest"
             elif agent == "historian":
-                default_model = os.getenv("OSSS_HISTORIAN_MODEL") or "llama3.1:latest"
+                default_model = os.getenv("OSSS_HISTORIAN_MODEL") or "llama3.3:latest"
             elif agent == "final":
-                default_model = os.getenv("OSSS_FINAL_MODEL") or "llama3.1:latest"
+                default_model = os.getenv("OSSS_FINAL_MODEL") or "llama3.3:latest"
             else:
-                default_model = os.getenv("OSSS_SYNTHESIS_MODEL") or "llama3.1:latest"
+                default_model = os.getenv("OSSS_SYNTHESIS_MODEL") or "llama3.3:latest"
 
             model = agent_cfg.get("model") or model_cfg or default_model
 

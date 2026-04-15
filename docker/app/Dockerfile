@@ -95,7 +95,7 @@ RUN mkdir -p /root/.metagpt && \
 'llm:' \
 '  api_type: "ollama"' \
 '  base_url: "http://host.containers.internal:11434/api"' \
-'  model: "llama3.1:latest"' \
+'  model: "llama3.3:latest"' \
 '  api_key: "local-ollama"' \
 
 > /root/.metagpt/config2.yaml
@@ -103,8 +103,8 @@ RUN mkdir -p /root/.metagpt && \
 # Talk to Ollama or your proxy using OpenAI-compatible /v1
 ENV OPENAI_BASE_URL="http://host.containers.internal:11434/v1" \
     OPENAI_API_KEY="none" \
-    LLM_MODEL="llama3.1" \
-    OSSS_LANGCHAIN_MODEL="llama3.1"
+    LLM_MODEL="llama3.3" \
+    OSSS_LANGCHAIN_MODEL="llama3.3"
 
 
 EXPOSE 8000

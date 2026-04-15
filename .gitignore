@@ -198,3 +198,5 @@ MetaGPT_workspace/*
 
 src/osss_logs/
 src/osss_logs/*
+
+.env

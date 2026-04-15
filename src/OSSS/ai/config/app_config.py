@@ -249,10 +249,10 @@ class ModelConfig(BaseModel):
         json_schema_extra={"example": "openai"},
     )
     default_model: str = Field(
-        "llama3.1",
+        "llama3.3",
         description="Default model name to use",
         min_length=1,
-        json_schema_extra={"example": "llama3.1"},
+        json_schema_extra={"example": "llama3.3"},
     )
 
     # Token limits and processing
@@ -506,7 +506,7 @@ class ApplicationConfig(BaseModel):
 
         # Model configuration
         config.models.default_provider = os.getenv("OSSS_LLM", "openai")
-        config.models.default_model = os.getenv("OPENAI_MODEL", "llama3.1")
+        config.models.default_model = os.getenv("OPENAI_MODEL", "llama3.3")
         config.models.max_tokens_per_request = int(
             os.getenv("OSSS_MAX_TOKENS", "4096")
         )

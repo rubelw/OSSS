@@ -36,7 +36,7 @@ except Exception:
         VLLM_ENDPOINT: str = os.getenv("VLLM_ENDPOINT", "http://host.containers.internal:11434")
         TUTOR_TEMPERATURE: float = float(os.getenv("TUTOR_TEMPERATURE", "0.2"))
         TUTOR_MAX_TOKENS: int = int(os.getenv("TUTOR_MAX_TOKENS", "4096"))
-        DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.1")
+        DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "llama3.3")
 
         # RAG toggles (safe defaults)
         RAG_ENABLED: bool = os.getenv("RAG_ENABLED", "1") not in ("0", "false", "False")
@@ -470,7 +470,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    model: Optional[str] = Field(default="llama3.1", description="Model name (e.g., llama3.1)")
+    model: Optional[str] = Field(default="llama3.3", description="Model name (e.g., llama3.3)")
     messages: List[ChatMessage]
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)
@@ -522,7 +522,7 @@ async def chat_completions(
     payload: ChatRequest = Body(
         ...,
         example={
-            "model": "llama3.1",
+            "model": "llama3.3",
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "How do I cook pasta al dente?"}
@@ -540,9 +540,9 @@ async def chat_completions(
     """
     Accepts OpenAI-style JSON body (model, messages, …)
     """
-    model = (payload.model or getattr(settings, "DEFAULT_MODEL", "llama3.1")).strip()
+    model = (payload.model or getattr(settings, "DEFAULT_MODEL", "llama3.3")).strip()
     if model == "llama3":
-        model = "llama3.1"
+        model = "llama3.3"
 
     temperature = (
         payload.temperature

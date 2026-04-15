@@ -620,8 +620,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     p.add_argument(
         "--llm-model",
-        default="llama3.1",
-        help="Model name to use at the endpoint (default: llama3.1)",
+        default="llama3.3",
+        help="Model name to use at the endpoint (default: llama3.3)",
     )
     p.add_argument(
         "--labels",

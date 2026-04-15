@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, TypeVar, Union, cast
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Type, TypeVar, Union, cast
 
 import openai
 from openai import Stream
@@ -45,7 +45,7 @@ class OpenAIChatLLM(LLMInterface):
         model: str = "gpt-4",
         base_url: Optional[str] = None,
         *,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 120.0,
         max_retries: int = 2,
         extra_body: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -81,6 +81,63 @@ class OpenAIChatLLM(LLMInterface):
             raise ValueError("model must be a non-empty string")
         self._model = value.strip()
 
+    def _raise_llm_exception(
+        self,
+        exc_type: Type[Exception],
+        *,
+        message: str,
+        llm_provider: str = "openai",
+        error_code: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ) -> None:
+        """
+        Raise an OSSS LLM exception while remaining compatible with older
+        exception class signatures that may not accept all keyword args.
+        """
+
+        # 1. Rich keyword form
+        try:
+            raise exc_type(
+                message=message,
+                llm_provider=llm_provider,
+                error_code=error_code,
+                cause=cause,
+            )
+        except TypeError:
+            pass
+
+        # 2. message + llm_provider keywords
+        try:
+            raise exc_type(
+                message=message,
+                llm_provider=llm_provider,
+            )
+        except TypeError:
+            pass
+
+        # 3. positional message + llm_provider
+        try:
+            raise exc_type(message, llm_provider)
+        except TypeError:
+            pass
+
+        # 4. message + cause if supported
+        try:
+            if cause is not None:
+                raise exc_type(message=message, cause=cause)
+            raise exc_type(message=message)
+        except TypeError:
+            pass
+
+        # 5. positional message only
+        try:
+            raise exc_type(message)
+        except TypeError:
+            pass
+
+        # 6. final guaranteed fallback for current base LLMError shape
+        raise LLMError(message, llm_provider)
+
     def _handle_openai_error(self, e: Exception) -> None:
         err_type = type(e).__name__
         message = str(e) or err_type
@@ -99,42 +156,130 @@ class OpenAIChatLLM(LLMInterface):
         InternalServerError = getattr(openai, "InternalServerError", None)
 
         if AuthenticationError and isinstance(e, AuthenticationError):
-            raise LLMAuthError(message=message, llm_provider="openai", error_code="auth_error", cause=e)
+            self._raise_llm_exception(
+                LLMAuthError,
+                message=message,
+                llm_provider="openai",
+                error_code="auth_error",
+                cause=e,
+            )
 
         if RateLimitError and isinstance(e, RateLimitError):
-            raise LLMRateLimitError(message=message, llm_provider="openai", error_code="rate_limit", cause=e)
+            self._raise_llm_exception(
+                LLMRateLimitError,
+                message=message,
+                llm_provider="openai",
+                error_code="rate_limit",
+                cause=e,
+            )
 
         if APITimeoutError and isinstance(e, APITimeoutError):
-            raise LLMTimeoutError(message=message, llm_provider="openai", error_code="timeout", cause=e)
+            self._raise_llm_exception(
+                LLMTimeoutError,
+                message=message,
+                llm_provider="openai",
+                error_code="timeout",
+                cause=e,
+            )
 
         if APIConnectionError and isinstance(e, APIConnectionError):
-            raise LLMServerError(message=message, llm_provider="openai", error_code="connection_error", cause=e)
+            self._raise_llm_exception(
+                LLMServerError,
+                message=message,
+                llm_provider="openai",
+                error_code="connection_error",
+                cause=e,
+            )
 
         if NotFoundError and isinstance(e, NotFoundError):
-            raise LLMModelNotFoundError(message=message, llm_provider="openai", error_code="model_not_found", cause=e)
+            self._raise_llm_exception(
+                LLMModelNotFoundError,
+                message=message,
+                llm_provider="openai",
+                error_code="model_not_found",
+                cause=e,
+            )
 
         if BadRequestError and isinstance(e, BadRequestError):
             msg_l = message.lower()
-            if "context length" in msg_l or "maximum context" in msg_l or "too many tokens" in msg_l:
-                raise LLMContextLimitError(message=message, llm_provider="openai", error_code="context_limit", cause=e)
-            raise LLMError(message=f"OpenAI bad request: {message}", llm_provider="openai", error_code="bad_request", cause=e)
+            if (
+                "context length" in msg_l
+                or "maximum context" in msg_l
+                or "too many tokens" in msg_l
+            ):
+                self._raise_llm_exception(
+                    LLMContextLimitError,
+                    message=message,
+                    llm_provider="openai",
+                    error_code="context_limit",
+                    cause=e,
+                )
+            self._raise_llm_exception(
+                LLMError,
+                message=f"OpenAI bad request: {message}",
+                llm_provider="openai",
+                error_code="bad_request",
+                cause=e,
+            )
 
         if InternalServerError and isinstance(e, InternalServerError):
-            raise LLMServerError(message=message, llm_provider="openai", error_code="server_error", cause=e)
+            self._raise_llm_exception(
+                LLMServerError,
+                message=message,
+                llm_provider="openai",
+                error_code="server_error",
+                cause=e,
+            )
 
         # Fallback by status
         if status_code == 401 or status_code == 403:
-            raise LLMAuthError(message=message, llm_provider="openai", error_code="auth_error", cause=e)
+            self._raise_llm_exception(
+                LLMAuthError,
+                message=message,
+                llm_provider="openai",
+                error_code="auth_error",
+                cause=e,
+            )
         if status_code == 404:
-            raise LLMModelNotFoundError(message=message, llm_provider="openai", error_code="not_found", cause=e)
+            self._raise_llm_exception(
+                LLMModelNotFoundError,
+                message=message,
+                llm_provider="openai",
+                error_code="not_found",
+                cause=e,
+            )
         if status_code == 408:
-            raise LLMTimeoutError(message=message, llm_provider="openai", error_code="timeout", cause=e)
+            self._raise_llm_exception(
+                LLMTimeoutError,
+                message=message,
+                llm_provider="openai",
+                error_code="timeout",
+                cause=e,
+            )
         if status_code == 429:
-            raise LLMRateLimitError(message=message, llm_provider="openai", error_code="rate_limit", cause=e)
+            self._raise_llm_exception(
+                LLMRateLimitError,
+                message=message,
+                llm_provider="openai",
+                error_code="rate_limit",
+                cause=e,
+            )
         if isinstance(status_code, int) and 500 <= status_code <= 599:
-            raise LLMServerError(message=message, llm_provider="openai", error_code=f"http_{status_code}", cause=e)
+            self._raise_llm_exception(
+                LLMServerError,
+                message=message,
+                llm_provider="openai",
+                error_code=f"http_{status_code}",
+                cause=e,
+            )
 
-        raise LLMError(message=f"OpenAI error ({err_type}): {message}", llm_provider="openai", error_code="openai_error", cause=e)
+        self._raise_llm_exception(
+            LLMError,
+            message=f"OpenAI error ({err_type}): {message}",
+            llm_provider="openai",
+            error_code="openai_error",
+            cause=e,
+        )
 
     def _coerce_kwargs_for_provider(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         out = dict(kwargs)
@@ -148,7 +293,9 @@ class OpenAIChatLLM(LLMInterface):
             merged_extra_body.update(cast(Dict[str, Any], out["extra_body"]))
 
         rf = out.get("response_format")
-        wants_json_object = force_json or (isinstance(rf, dict) and rf.get("type") == "json_object")
+        wants_json_object = force_json or (
+            isinstance(rf, dict) and rf.get("type") == "json_object"
+        )
 
         # Ollama OpenAI-compat typically uses extra_body {"format":"json"} not response_format
         if self._is_ollama and wants_json_object:
@@ -206,7 +353,8 @@ class OpenAIChatLLM(LLMInterface):
             if isinstance(e, openai.OpenAIError):
                 self._handle_openai_error(e)  # raises
 
-            raise LLMError(
+            self._raise_llm_exception(
+                LLMError,
                 message=f"Unexpected error during OpenAI API call: {str(e)}",
                 llm_provider="openai",
                 error_code="unexpected_error",
@@ -239,7 +387,12 @@ class OpenAIChatLLM(LLMInterface):
         messages.append({"role": "user", "content": prompt})
 
         try:
-            response = self._chat_completion(messages=messages, stream=stream, on_log=on_log, **kwargs)
+            response = self._chat_completion(
+                messages=messages,
+                stream=stream,
+                on_log=on_log,
+                **kwargs,
+            )
 
         except openai.APIError as e:
             llm_duration_ms = (time.time() - llm_start_time) * 1000
@@ -255,7 +408,11 @@ class OpenAIChatLLM(LLMInterface):
                     "llm_api_calls_failed",
                     labels={
                         "model": self.model or "unknown",
-                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
+                        "agent": (
+                            obs_context.agent_name
+                            if obs_context and obs_context.agent_name
+                            else "unknown"
+                        ),
                         "error_type": type(e).__name__,
                     },
                 )
@@ -277,13 +434,18 @@ class OpenAIChatLLM(LLMInterface):
                     "llm_api_calls_failed",
                     labels={
                         "model": self.model or "unknown",
-                        "agent": obs_context.agent_name if obs_context and obs_context.agent_name else "unknown",
+                        "agent": (
+                            obs_context.agent_name
+                            if obs_context and obs_context.agent_name
+                            else "unknown"
+                        ),
                         "error_type": "unexpected_error",
                     },
                 )
             if on_log:
                 on_log(f"[OpenAIChatLLM][unexpected_error] {str(e)}")
-            raise LLMError(
+            self._raise_llm_exception(
+                LLMError,
                 message=f"Unexpected error during OpenAI API call: {str(e)}",
                 llm_provider="openai",
                 error_code="unexpected_error",

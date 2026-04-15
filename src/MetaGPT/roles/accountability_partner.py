@@ -30,7 +30,7 @@ class AccountabilityPartnerRole(Role):
 
         # Load Ollama config
         base_url = os.getenv("OLLAMA_BASE_URL", "http://host.containers.internal:11434")
-        model = os.getenv("OLLAMA_MODEL", "llama3.2")
+        model = os.getenv("OLLAMA_MODEL", "llama3.3")
 
         logger.info(
             "AccountabilityPartnerRole initializing with Ollama base_url=%s model=%s",

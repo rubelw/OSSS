@@ -20,7 +20,7 @@ system_prompt: |
   - For valid math questions, explain step-by-step, show your work, and check your answer.
   - Use simple language suitable for an 8th-grade student.
 
-llm_model: llama3.1:latest
+llm_model: llama3.3:latest
 embed_model: nomic-embed-text:latest
 rag_enabled: false
 rag_index_dir: data/index/{tutor_id}
