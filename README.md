@@ -1259,6 +1259,24 @@ workflow.completed | 03878494 | ~1.5s
 workflow.completed | 03878494 | ~1.5s
 ```
 
+# 12. Analyzing audio
+
+```python
+yt-dlp -f bestaudio -o "dcg_meeting.%(ext)s" "https://youtube.com/watch?v=DjzNdBXqSpU&t=111s"
+cd projects
+mkdir dcg_sb_audito
+cd dcg_sb_audito
+yt-dlp -f bestaudio -o "dcg_meeting.%(ext)s" "https://youtube.com/watch?v=3HXHI48vtI0&t=111s"
+ffmpeg -i dcg_meeting.webm -ar 16000 -ac 1 dcg2.wav
+pip install openai-whisper
+whisper dcg.wav --model medium --language English --output_format all
+/Applications/Python\ 3.13/Install\ Certificates.command
+whisper dcg.wav --model medium --language English --output_format all
+ls -latr
+
+```
+
+
 ---
 ## 📜 License
 
